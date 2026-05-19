@@ -354,7 +354,7 @@ async def help_command(update: Update, context: CallbackContext):
         f"/set_checkin_reward &lt;n&gt;\n",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button("Browse Tools", callback_data="show_catalog", emoji)
+            icon_button("Browse Tools", callback_data="show_catalog")
         ]]),
     )
 
