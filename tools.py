@@ -22,18 +22,18 @@ db = Database(DB_PATH)
 # ── Premium Emoji Config ──────────────────────────────────────────────────────
 PREMIUM_EMOJIS = {
     "STAR":     ("5994495149336434048", "⭐"),
-    "POINT":    ("5895302952649758879", "🏅"),
+    "POINT":    ("5345843457145453967", "🏅"),
     "LOCK":     ("6037249452824072506", "🔒"),
     "UNLOCK":   ("6034962180875490251", "🔓"),
     "CHECK":    ("5260416304224936047", "✅"),
     "CANCEL":   ("5192829775437117939", "❌"),
-    "INFO":     ("5879785854284599288", "ℹ️"),
+    "INFO":     ("5258503720928288433", "ℹ️"),
     "WARNING":  ("4915853119839011973", "⚠️"),
-    "GIFT":     ("5203934739798445955", "🎁"),
+    "GIFT":     ("5963213811597970978", "🎁"),
     "TREASURE": ("5807465992363710697", "💎"),
     "CROWN":    ("5807868868886009920", "👑"),
     "ROCKET":   ("5316571734604790521", "🚀"),
-    "HEART":    ("5994453058656931434", "❤️"),
+    "HEART":    ("5258179403652801593", "❤️"),
     "COIN":     ("5318972874726339331", "🪙"),
     "down":     ("6037157012242960559", "👇"),
     "paper":    ("5289888859436366020", "📄"),
@@ -44,27 +44,28 @@ PREMIUM_EMOJIS = {
     "pack":     ("5884479287171485878", "📦"),
     "bulb":     ("5258216851472654189", "💡"),
     "LIST":     ("5330363643391393348", "📋"),
-    "BACK":     ("5252244619736124820", "◀️"),
-    "EDIT":     ("5215169886532284532", "✏️"),
+    "BACK":     ("5877629862306385808", "◀️"),
+    "EDIT":     ("5879841310902324730", "✏️"),
     "WAVE":     ("5994750571041525522", "👋"),
-    "PEOPLE":   ("5818859295251945286", "👥"),
-    "SEARCH":   ("5253559111558083100", "🔍"),
-    "TAG":      ("5253559111558083100", "🏷️"),
-    "FIRE":     ("5199428942440807545", "🔥"),
-    "MEDAL1":   ("5431815452437257407", "🥇"),
-    "MEDAL2":   ("5431815452437257407", "🥈"),
-    "MEDAL3":   ("5431815452437257407", "🥉"),
-    "TROPHY":   ("5471952986970267163", "🏆"),
-    "STREAK":   ("5199428942440807545", "🔥"),
-    "SHIELD":   ("5282843764451195532", "🛡️"),
-    "BELL":     ("5309785001428533347", "🔔"),
-    "CHART":    ("5236737612368392960", "📊"),
-    "BAN":      ("5192829775437117939", "🚫"),
+    "PEOPLE":   ("5942877472163892475", "👥"),
+    "SEARCH":   ("5361712364871763071", "🔍"),
+    "TAG":      ("5456136765607783041", "🏷️"),
+    "FIRE":     ("5116414868357907335", "🔥"),
+    "MEDAL1":   ("6206370726476256501", "🥇"),
+    "MEDAL2":   ("6206222099132978580", "🥈"),
+    "MEDAL3":   ("5453902265922376865", "🥉"),
+    "TROPHY":   ("5870684638195748414", "🏆"),
+    "STREAK":   ("5215512756152704759", "🔥"),
+    "SHIELD":   ("5931409969613116639", "🛡️"),
+    "BELL":     ("5909201569898827582", "🔔"),
+    "CHART":    ("5931472654660800739", "📊"),
+    "BAN":      ("5872829476143894491", "🚫"),
     "USER":     ("5258011929993026890", "👤"),
     "FAV":      ("5994453058656931434", "❤️"),
     "STAR5":    ("5956561749070057536", "⭐⭐⭐⭐⭐"),
     "REVIEW":   ("5884510167986343350", "💬"),
 }
+
 
 def emoji(name: str) -> str:
     emoji_id, fallback = PREMIUM_EMOJIS.get(name, ("", ""))
@@ -84,10 +85,10 @@ def icon_button(text: str, emoji_key: str = None, **kwargs) -> InlineKeyboardBut
     return InlineKeyboardButton(text=text, **kwargs)
 
 def back_btn(callback_data: str = "show_catalog") -> InlineKeyboardButton:
-    return icon_button("◀️ Back", emoji_key="BACK", callback_data=callback_data)
+    return icon_button("Back", emoji_key="BACK", callback_data=callback_data)
 
 def cancel_btn() -> InlineKeyboardButton:
-    return icon_button("❌ Cancel", callback_data="conv_cancel")
+    return icon_button("Cancel", callback_data="conv_cancel")
 
 def step_header(current: int, total: int, title: str) -> str:
     bar = "●" * current + "○" * (total - current)
@@ -229,15 +230,15 @@ async def _build_catalog(category: str = None):
         cat_str    = f" [{tool.get('category','General')}]" if tool.get("category") else ""
         keyboard.append([
             icon_button(
-                f"🔒  {escape_html(tool['name'])}{cat_str}{rating_str}",
+                f"{escape_html(tool['name'])}{cat_str}{rating_str}",
                 callback_data=f"tool_{tool['id']}",
             )
         ])
         actions = []
         if tool.get("price_stars"):
-            actions.append(icon_button(f"⭐ {tool['price_stars']}", callback_data=f"buystars_{tool['id']}"))
+            actions.append(icon_button(f"{tool['price_stars']}", callback_data=f"buystars_{tool['id']}"))
         if tool.get("price_points"):
-            actions.append(icon_button(f"🏅 {tool['price_points']}", callback_data=f"buypoints_{tool['id']}"))
+            actions.append(icon_button(f"{tool['price_points']}", callback_data=f"buypoints_{tool['id']}"))
         if actions:
             keyboard.append(actions)
 
@@ -256,8 +257,8 @@ async def _build_catalog(category: str = None):
             icon_button("My Tools",     callback_data="show_purchases"),
         ],
         [
-            icon_button("❤️ Favorites",    callback_data="show_favorites"),
-            icon_button("🎯 Daily Reward", callback_data="daily_checkin"),
+            icon_button("Favorites",    callback_data="show_favorites"),
+            icon_button("Daily Reward", callback_data="daily_checkin"),
         ],
     ]
     msg = (
@@ -353,7 +354,7 @@ async def help_command(update: Update, context: CallbackContext):
         f"/set_checkin_reward &lt;n&gt;\n",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button("💎 Browse Tools", callback_data="show_catalog")
+            icon_button("Browse Tools", callback_data="show_catalog", emoji)
         ]]),
     )
 
@@ -445,7 +446,7 @@ async def search_query(update: Update, context: CallbackContext):
             f"{emoji('WARNING')} No tools found for <b>{escape_html(q)}</b>.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
-                [icon_button("🔍 Search Again", callback_data="search_start")],
+                [icon_button("Search Again", callback_data="search_start")],
                 [back_btn("show_catalog")],
             ]),
         )
@@ -456,7 +457,7 @@ async def search_query(update: Update, context: CallbackContext):
         avg = db.get_avg_rating(tool["id"])
         rating_str = f" {stars(round(avg))}" if avg else ""
         keyboard.append([
-            icon_button(f"🔒 {escape_html(tool['name'])}{rating_str}", callback_data=f"tool_{tool['id']}")
+            icon_button(f"🔒{escape_html(tool['name'])}{rating_str}", callback_data=f"tool_{tool['id']}")
         ])
     keyboard.append([back_btn("show_catalog")])
     await update.message.reply_text(
@@ -567,7 +568,7 @@ async def daily_checkin(update: Update, context: CallbackContext):
         f"{'🔥' * min(new_streak, 10)}"
     )
     kb = InlineKeyboardMarkup([
-        [icon_button("🏆 Leaderboard", callback_data="show_leaderboard")],
+        [icon_button("Leaderboard", callback_data="show_leaderboard")],
         [back_btn("show_catalog")],
     ])
     if edit:
@@ -633,9 +634,9 @@ async def review_start(update: Update, context: CallbackContext):
 
     context.user_data["review_tool_id"] = tool_id
     keyboard = InlineKeyboardMarkup([[
-        icon_button("⭐ 1", callback_data="rate_1"),
-        icon_button("⭐ 2", callback_data="rate_2"),
-        icon_button("⭐ 3", callback_data="rate_3"),
+        icon_button("1", callback_data="rate_1"),
+        icon_button("2", callback_data="rate_2"),
+        icon_button("3", callback_data="rate_3"),
         icon_button("⭐ 4", callback_data="rate_4"),
         icon_button("⭐ 5", callback_data="rate_5"),
     ], [cancel_btn()]])
