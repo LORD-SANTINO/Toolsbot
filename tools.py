@@ -460,7 +460,7 @@ async def search_query(update: Update, context: CallbackContext):
         ])
     keyboard.append([back_btn("show_catalog")])
     await update.message.reply_text(
-        f"{emoji('SEARCH')} <b>Results for "{escape_html(q)}"</b>  ({len(results)} found):",
+        f"{emoji('SEARCH')} <b>Results for '{escape_html(q)}'</b>  ({len(results)} found):",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
