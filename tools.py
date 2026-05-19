@@ -60,10 +60,10 @@ PREMIUM_EMOJIS = {
     "BELL":     ("5309785001428533347", "🔔"),
     "CHART":    ("5236737612368392960", "📊"),
     "BAN":      ("5192829775437117939", "🚫"),
-    "USER":     ("5818859295251945286", "👤"),
+    "USER":     ("5258011929993026890", "👤"),
     "FAV":      ("5994453058656931434", "❤️"),
-    "STAR5":    ("5994495149336434048", "⭐⭐⭐⭐⭐"),
-    "REVIEW":   ("5289888859436366020", "💬"),
+    "STAR5":    ("5956561749070057536", "⭐⭐⭐⭐⭐"),
+    "REVIEW":   ("5884510167986343350", "💬"),
 }
 
 def emoji(name: str) -> str:
@@ -243,17 +243,17 @@ async def _build_catalog(category: str = None):
 
     keyboard += [
         [
-            icon_button("🔍 Search",       callback_data="search_start"),
-            icon_button("🏷️ Categories",   callback_data="show_categories"),
+            icon_button("Search",       callback_data="search_start"),
+            icon_button("Categories",   callback_data="show_categories"),
         ],
         [
-            icon_button("💡 Suggest",      callback_data="suggest_start"),
-            icon_button("🏆 Leaderboard",  callback_data="show_leaderboard"),
+            icon_button("Suggest",      callback_data="suggest_start"),
+            icon_button("Leaderboard",  callback_data="show_leaderboard"),
         ],
         [
-            icon_button("ℹ️ About",        callback_data="show_info"),
-            icon_button("🏅 My Points",    callback_data="show_points"),
-            icon_button("📦 My Tools",     callback_data="show_purchases"),
+            icon_button("About",        callback_data="show_info"),
+            icon_button("My Points",    callback_data="show_points"),
+            icon_button("My Tools",     callback_data="show_purchases"),
         ],
         [
             icon_button("❤️ Favorites",    callback_data="show_favorites"),
@@ -295,19 +295,19 @@ async def start(update: Update, context: CallbackContext):
             pass
 
     keyboard = InlineKeyboardMarkup([
-        [icon_button("💎 Browse Tools",    callback_data="show_catalog")],
+        [icon_button("Browse Tools",    callback_data="show_catalog")],
         [
-            icon_button("🏅 My Points",    callback_data="show_points"),
-            icon_button("📦 My Tools",     callback_data="show_purchases"),
-            icon_button("❤️ Favorites",    callback_data="show_favorites"),
+            icon_button("My Points",    callback_data="show_points"),
+            icon_button("My Tools",     callback_data="show_purchases"),
+            icon_button("Favorites",    callback_data="show_favorites"),
         ],
         [
-            icon_button("🎯 Daily Reward", callback_data="daily_checkin"),
-            icon_button("🏆 Leaderboard",  callback_data="show_leaderboard"),
+            icon_button("Daily Reward", callback_data="daily_checkin"),
+            icon_button("Leaderboard",  callback_data="show_leaderboard"),
         ],
         [
-            icon_button("💡 Suggest",      callback_data="suggest_start"),
-            icon_button("ℹ️ About",        callback_data="show_info"),
+            icon_button("Suggest",      callback_data="suggest_start"),
+            icon_button("About",        callback_data="show_info"),
         ],
     ])
     await update.message.reply_text(
