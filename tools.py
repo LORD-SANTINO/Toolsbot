@@ -155,8 +155,8 @@ async def check_and_award(bot, user_id: int, trigger: str):
     purchases = len(db.get_user_purchases(user_id))
     referrals = db.count_referrals(user_id)
     user      = db.get_user(user_id)
-    streak    = user.get("streak", 0) if user else 0
-    points    = user.get("points", 0) if user else 0
+    streak    = user['streak'] if user else 0
+    points    = user['points'] if user else 0
 
     candidates = []
     if trigger == "purchase":
