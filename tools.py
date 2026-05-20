@@ -88,7 +88,7 @@ def back_btn(callback_data: str = "show_catalog") -> InlineKeyboardButton:
     return icon_button("Back", emoji_key="BACK", callback_data=callback_data)
 
 def cancel_btn() -> InlineKeyboardButton:
-    return icon_button("Cancel", callback_data="conv_cancel")
+    return icon_button("Cancel", callback_data="conv_cancel", emoji_key="CANCEL")
 
 def step_header(current: int, total: int, title: str) -> str:
     bar = "●" * current + "○" * (total - current)
@@ -227,7 +227,7 @@ async def _build_catalog(category: str = None):
     for tool in tools_list:
         avg = db.get_avg_rating(tool["id"])
         rating_str = f" {stars(round(avg))}" if avg else ""
-        cat_str    = f" [{tool.get('category','General')}]" if tool.get("category") else ""
+        cat_str = f" [{tool['category'] or 'General'}]" if tool['category'] else ""
         keyboard.append([
             icon_button(
                 f"{escape_html(tool['name'])}{cat_str}{rating_str}",
