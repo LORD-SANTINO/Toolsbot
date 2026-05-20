@@ -795,7 +795,7 @@ async def tool_detail(update: Update, context: CallbackContext):
 
     user_id  = query.from_user.id
     is_fav   = db.is_favorite(user_id, tool_id)
-    fav_text = "❤️ Unfav" if is_fav else "🤍 Favorite"
+    fav_text = "Unfav" if is_fav else "🤍 Favorite"
 
     # Already owned → reveal
     if db.user_has_purchased(user_id, tool_id):
@@ -814,7 +814,7 @@ async def tool_detail(update: Update, context: CallbackContext):
             f"{rev_txt}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
-                [icon_button(fav_text,              callback_data=f"fav_{tool_id}", emoji_key="FAV"),
+                [icon_button(fav_text,              callback_data=f"fav_{tool_id}"),
                  icon_button("Review",           callback_data=f"review_{tool_id}", emoji_key="REVIEW")],
                 [icon_button("My Tools",         callback_data="show_purchases", emoji_key="pack")],
                 [back_btn("show_catalog")],
@@ -846,7 +846,7 @@ async def tool_detail(update: Update, context: CallbackContext):
     keyboard = []
     if buy_row:
         keyboard.append(buy_row)
-    keyboard.append([icon_button(fav_text, callback_data=f"fav_{tool_id}", emoji_key="FAV")])
+    keyboard.append([icon_button(fav_text, callback_data=f"fav_{tool_id}")])
     keyboard.append([back_btn("show_catalog")])
 
     await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
