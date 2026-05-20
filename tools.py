@@ -1285,6 +1285,52 @@ async def add_tool_price_stars(update: Update, context: CallbackContext):
     )
     return ADD_TOOL_CONTENT
 
+async def add_tool_content_file(update: Update, context: CallbackContext):
+    """Handle file submission when admin adds a tool."""
+    d      = context.user_data
+    stars_ = d.get("tprice_stars", 0)
+    points = d.get("tprice_points", 0)
+
+    # Determine file type and build content string
+    if update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        file_type = "photo"
+        content = f"[PHOTO:{file_id}]"
+    elif update.message.document:
+        file_id = update.message.document.file_id
+        file_type = "document"
+        content = f"[DOCUMENT:{file_id}:{update.message.document.file_name}]"
+    elif update.message.video:
+        file_id = update.message.video.file_id
+        file_type = "video"
+        content = f"[VIDEO:{file_id}]"
+    else:
+        await update.message.reply_text(
+            f"{emoji('CANCEL')} Unsupported file type. Please send a photo, document, or video.",
+            parse_mode=ParseMode.HTML
+        )
+        return ADD_TOOL_CONTENT
+
+    caption = update.message.caption or ""
+    full_content = f"{content}\n{caption}" if caption else content
+
+    # Save tool
+    db.add_tool(d["tname"], d["tdesc"], stars_, points, 0, "", full_content,
+                category=d.get("tcat", ""))
+
+    price_parts = ([f"{emoji('STAR')} {stars_}"] if stars_ else []) + \
+                  ([f"{emoji('POINT')} {points}"] if points else [])
+    await update.message.reply_text(
+        f"{emoji('CHECK')} <b>Tool added!</b>\n\n"
+        f"Name: <b>{escape_html(d['tname'])}</b>\n"
+        f"Category: <b>{escape_html(d.get('tcat','') or 'General')}</b>\n"
+        f"Price: {' | '.join(price_parts) or 'Free'}\n"
+        f"Type: {file_type}",
+        parse_mode=ParseMode.HTML,
+    )
+    context.user_data.clear()
+    return ConversationHandler.END
+
 async def add_tool_price_points(update: Update, context: CallbackContext):
     try:
         price = int(update.message.text); assert price > 0
@@ -1685,7 +1731,10 @@ def main():
             ADD_TOOL_TYPE:         [CallbackQueryHandler(add_tool_type, pattern="^type_")],
             ADD_TOOL_PRICE_STARS:  [MessageHandler(filters.TEXT & ~filters.COMMAND, add_tool_price_stars)],
             ADD_TOOL_PRICE_POINTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_tool_price_points)],
-            ADD_TOOL_CONTENT:      [MessageHandler(filters.TEXT & ~filters.COMMAND, add_tool_content)],
+            ADD_TOOL_CONTENT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, add_tool_content),
+                MessageHandler(filters.PHOTO | filters.Document.ALL | filters.VIDEO, add_tool_content_file),
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel_all),
                    CallbackQueryHandler(conv_cancel_callback, pattern="^conv_cancel$")],
