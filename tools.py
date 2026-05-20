@@ -62,8 +62,9 @@ PREMIUM_EMOJIS = {
     "BAN":      ("5872829476143894491", "🚫"),
     "USER":     ("5258011929993026890", "👤"),
     "FAV":      ("5994453058656931434", "❤️"),
-    "STAR5":    ("5956561749070057536", "⭐⭐⭐⭐⭐"),
+    "STAR5":    ("5976731220434753490", "⭐⭐⭐⭐⭐"),
     "REVIEW":   ("5884510167986343350", "💬"),
+    "Star5": ("5976731220434753490", "lol")
 }
 
 
@@ -299,7 +300,7 @@ async def start(update: Update, context: CallbackContext):
         [icon_button("Browse Tools",    callback_data="show_catalog", emoji_key="SEARCH")],
         [
             icon_button("My Points",    callback_data="show_points", emoji_key="POINT"),
-            icon_button("My Tools",     callback_data="show_purchases", emoji_key="Pack"),
+            icon_button("My Tools",     callback_data="show_purchases", emoji_key="pack"),
             icon_button("Favorites",    callback_data="show_favorites", emoji_key="FAV"),
         ],
         [
@@ -337,21 +338,7 @@ async def help_command(update: Update, context: CallbackContext):
         f"/leaderboard — Top points earners\n"
         f"/achievements — Your badges\n"
         f"/suggest — Suggest a tool\n"
-        f"/cancel — Abort any operation\n\n"
-        f"<b>Admin</b>\n"
-        f"/addtool — Add a tool\n"
-        f"/listtools — List all tools\n"
-        f"/edittool — Edit a tool\n"
-        f"/removetool &lt;id&gt; — Delete a tool\n"
-        f"/broadcast — Message all users\n"
-        f"/stats — Bot statistics\n"
-        f"/userinfo &lt;id&gt; — View a user\n"
-        f"/banuser &lt;id&gt; — Ban a user\n"
-        f"/unbanuser &lt;id&gt; — Unban a user\n"
-        f"/awardpoints — Manually award points\n"
-        f"/setinvitepoints &lt;n&gt;\n"
-        f"/set_suggestion_reward &lt;n&gt;\n"
-        f"/set_checkin_reward &lt;n&gt;\n",
+        f"/cancel — Abort any operation\n\n",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
             icon_button("Browse Tools", callback_data="show_catalog", emoji_key="SEARCH")
@@ -394,7 +381,7 @@ async def show_categories(update: Update, context: CallbackContext):
     keyboard = []
     for cat in cats:
         count = db.count_tools_in_category(cat)
-        keyboard.append([icon_button(f"🏷️ {cat}  ({count})", callback_data=f"cat_{cat}", emoji_key="TAG")])
+        keyboard.append([icon_button(f"{cat}  ({count})", callback_data=f"cat_{cat}", emoji_key="TAG")])
     keyboard.append([back_btn("show_catalog")])
     await query.edit_message_text(
         f"{emoji('TAG')} <b>Categories</b>\n\nBrowse tools by category:",
@@ -634,11 +621,11 @@ async def review_start(update: Update, context: CallbackContext):
 
     context.user_data["review_tool_id"] = tool_id
     keyboard = InlineKeyboardMarkup([[
-        icon_button("1", callback_data="rate_1"),
-        icon_button("2", callback_data="rate_2"),
-        icon_button("3", callback_data="rate_3"),
+        icon_button("1", callback_data="rate_1", emoji_key="MEDAL1"),
+        icon_button("2", callback_data="rate_2", emoji_key="MEDAL2"),
+        icon_button("3", callback_data="rate_3", emoji_key="MEDAL3"),
         icon_button("⭐ 4", callback_data="rate_4"),
-        icon_button("⭐ 5", callback_data="rate_5"),
+        icon_button("5", callback_data="rate_5", emoji_key="Star5"),
     ], [cancel_btn()]])
     await query.edit_message_text(
         f"{emoji('REVIEW')} <b>Rate this Tool</b>\n\nChoose your rating:",
@@ -677,7 +664,7 @@ async def review_text(update: Update, context: CallbackContext):
         f"{'<i>' + escape_html(review) + '</i>' if review else ''}",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button(f"◀️ Back to Tool", callback_data=f"tool_{tool_id}")
+            icon_button(f"Back to Tool", callback_data=f"tool_{tool_id}", emoji_key="BACK")
         ]]),
     )
     context.user_data.clear()
@@ -693,7 +680,7 @@ async def points_command(update: Update, context: CallbackContext):
     await update.message.reply_text(
         f"{emoji('POINT')} <b>Your Balance</b>\n\n"
         f"Points: <b>{user['points']}</b>\n"
-        f"Streak: <b>{streak} day{'s' if streak != 1 else ''}</b> 🔥\n\n"
+        f"Streak: <b>{streak} day{'s' if streak != 1 else ''}</b> {emoji('FIRE')}\n\n"
         f"{emoji('PEOPLE')} Earn <b>{get_invite_points()} pts</b> per referral:\n"
         f"<code>https://t.me/{bot_username}?start=ref{user_id}</code>\n\n"
         f"{emoji('bulb')} Approved suggestions earn <b>{get_suggestion_reward()} pts</b>!\n"
@@ -716,7 +703,7 @@ async def show_points(update: Update, context: CallbackContext):
     await query.edit_message_text(
         f"{emoji('POINT')} <b>Your Balance</b>\n\n"
         f"Points: <b>{user['points']}</b>\n"
-        f"Streak: <b>{streak} day{'s' if streak != 1 else ''}</b> 🔥\n\n"
+        f"Streak: <b>{streak} day{'s' if streak != 1 else ''}</b> {emoji('FIRE')}\n\n"
         f"{emoji('PEOPLE')} Earn <b>{get_invite_points()} pts</b> per referral:\n"
         f"<code>https://t.me/{bot_username}?start=ref{user_id}</code>\n\n"
         f"{emoji('bulb')} Approved suggestions earn <b>{get_suggestion_reward()} pts</b>!\n"
@@ -738,14 +725,14 @@ async def my_purchases(update: Update, context: CallbackContext):
         await update.message.reply_text(
             f"{emoji('INFO')} No tools unlocked yet.\nBrowse the catalog to get started!",
             parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([[icon_button("💎 Browse", callback_data="show_catalog")]]),
+            reply_markup=InlineKeyboardMarkup([[icon_button("Browse", callback_data="show_catalog", emoji_key="TREASURE")]]),
         )
         return
     text = f"{emoji('TREASURE')} <b>Your Unlocked Tools</b>\n\n"
     for p in purchases:
         tool = db.get_tool(p["tool_id"])
         if tool:
-            text += f"{emoji('UNLOCK')} <b>{escape_html(tool['name'])}</b>  <i>via {p.get('purchase_type','?')}</i>\n"
+            text += f"{emoji('UNLOCK')} <b>{escape_html(tool['name'])}</b>  <i>via {p['purchase_type'] or '?'}</i>\n"
     await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
 async def show_purchases(update: Update, context: CallbackContext):
@@ -757,7 +744,7 @@ async def show_purchases(update: Update, context: CallbackContext):
         await query.edit_message_text(
             f"{emoji('INFO')} No tools unlocked yet.",
             parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([[icon_button("💎 Browse", callback_data="show_catalog")]]),
+            reply_markup=InlineKeyboardMarkup([[icon_button("Browse", callback_data="show_catalog", emoji_key="TREASURE")]]),
         )
         return
     text = f"{emoji('TREASURE')} <b>Your Unlocked Tools</b>\n\n"
@@ -828,7 +815,7 @@ async def tool_detail(update: Update, context: CallbackContext):
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
                 [icon_button(fav_text,              callback_data=f"fav_{tool_id}", emoji_key="FAV"),
-                 icon_button("Review",           callback_data=f"review_{tool_id}", emoji="REVIEW")],
+                 icon_button("Review",           callback_data=f"review_{tool_id}", emoji_key="REVIEW")],
                 [icon_button("My Tools",         callback_data="show_purchases", emoji_key="pack")],
                 [back_btn("show_catalog")],
             ]),
@@ -852,9 +839,9 @@ async def tool_detail(update: Update, context: CallbackContext):
 
     buy_row = []
     if tool["price_stars"]:
-        buy_row.append(icon_button(f"{tool['price_stars']} Stars", callback_data=f"buystars_{tool_id}", emoji_key="STARS"))
+        buy_row.append(icon_button(f"{tool['price_stars']} Stars", callback_data=f"buystars_{tool_id}", emoji_key="STAR"))
     if tool["price_points"]:
-        buy_row.append(icon_button(f"{tool['price_points']} pts",  callback_data=f"buypoints_{tool_id}", emoji_key="POINTS"))
+        buy_row.append(icon_button(f"{tool['price_points']} pts",  callback_data=f"buypoints_{tool_id}", emoji_key="POINT"))
 
     keyboard = []
     if buy_row:
@@ -875,7 +862,7 @@ async def buy_stars(update: Update, context: CallbackContext):
     if not tool or not tool["price_stars"]:
         await query.answer("Invalid tool.", show_alert=True); return
     if db.user_has_purchased(user_id, tool_id):
-        await query.answer("You already own this!", show_alert=True); return
+        await query.answer("Bro, You already own this!", show_alert=True); return
 
     await context.bot.send_invoice(
         chat_id=user_id, title=tool["name"],
@@ -884,9 +871,9 @@ async def buy_stars(update: Update, context: CallbackContext):
         prices=[LabeledPrice("Stars", tool["price_stars"])],
     )
     await query.edit_message_text(
-        f"{emoji('STAR')} Invoice sent!\n\nComplete the payment to unlock <b>{escape_html(tool['name'])}</b>.",
+        f"{emoji('STAR')} Invoice sent{emoji('CHECK')}!\n\nComplete the payment to unlock <b>{escape_html(tool['name'])}</b>.",
         parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([[icon_button("Back to Tool", callback_data=f"tool_{tool_id}", emoji_key="TREASURE")]]),
+        reply_markup=InlineKeyboardMarkup([[icon_button("Back to Tool", callback_data=f"tool_{tool_id}", emoji_key="BACK")]]),
     )
 
 async def pre_checkout(update: Update, context: CallbackContext):
@@ -1058,7 +1045,7 @@ async def user_info(update: Update, context: CallbackContext):
     banned    = db.is_banned(uid)
     await update.message.reply_text(
         f"{emoji('USER')} <b>User #{uid}</b>\n\n"
-        f"Username: @{escape_html(u.get('username') or 'N/A')}\n"
+        f"Username: @{escape_html(u['username'] or 'N/A')}\n"
         f"Points: <b>{u['points']}</b>\n"
         f"Streak: <b>{streak}d</b>\n"
         f"Purchases: <b>{purchases}</b>\n"
@@ -1318,7 +1305,7 @@ async def add_tool_content(update: Update, context: CallbackContext):
     points = d.get("tprice_points", 0)
     db.add_tool(d["tname"], d["tdesc"], stars_, points, 0, "", update.message.text.strip(),
                 category=d.get("tcat", ""))
-    price_parts = ([f"⭐ {stars_}"] if stars_ else []) + ([f"🏅 {points}"] if points else [])
+    price_parts = ([f"{emoji('STAR')} {stars_}"] if stars_ else []) + ([f"{emoji('POINT')} {points}"] if points else [])
     await update.message.reply_text(
         f"{emoji('CHECK')} <b>Tool added!</b>\n\n"
         f"Name: <b>{escape_html(d['tname'])}</b>\n"
@@ -1355,7 +1342,7 @@ async def edit_tool_id(update: Update, context: CallbackContext):
         return EDIT_TOOL_ID
     context.user_data["edit_tool_id"] = tool_id
     keyboard = InlineKeyboardMarkup([
-        [icon_button("Name",        callback_data="editf_name", emoji_key="NAME"),
+        [icon_button("Name",        callback_data="editf_name", emoji_key="name"),
          icon_button("Description", callback_data="editf_desc", emoji_key="LIST")],
         [icon_button("Category",   callback_data="editf_category", emoji_key="TAG"),
          icon_button("Content",     callback_data="editf_content", emoji_key="EDIT")],
@@ -1425,8 +1412,8 @@ async def list_tools(update: Update, context: CallbackContext):
         await update.message.reply_text(f"{emoji('pack')} No tools yet."); return
     lines = [f"{emoji('LIST')} <b>All Tools</b>\n"]
     for t in tools_list:
-        prices = ([f"{t['price_stars']}⭐"] if t.get("price_stars") else []) + \
-                 ([f"{t['price_points']}🏅"] if t.get("price_points") else [])
+        prices = ([f"{t['price_stars']}⭐"] if t["price_stars"] else []) + \
+                 ([f"{t['price_points']}🏅"] if t["price_points"] else [])
         cat  = t.get("category") or "General"
         lines.append(f"<b>#{t['id']}</b>  [{cat}]  {escape_html(t['name'])}  —  {' | '.join(prices) or 'Free'}")
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
@@ -1550,7 +1537,7 @@ async def suggest_content(update: Update, context: CallbackContext):
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
             icon_button("Approve", callback_data=f"approvesugg_{sugg_id}", emoji_key="CHECK"),
-            icon_button("Reject",  callback_data=f"rejectsugg_{sugg_id}", emoji_key="REJECT"),
+            icon_button("Reject",  callback_data=f"rejectsugg_{sugg_id}", emoji_key="CANCEL"),
         ]]),
     )
     context.user_data.clear()
