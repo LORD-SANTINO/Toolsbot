@@ -591,7 +591,7 @@ async def show_leaderboard(update: Update, context: CallbackContext):
         medals = ["🥇", "🥈", "🥉"] + ["🏅"] * 7
         lines  = [f"{emoji('TROPHY')} <b>Top Points Earners</b>\n"]
         for i, row in enumerate(top):
-            uname = f"@{row['username']}" if row.get("username") else f"User {row['user_id']}"
+            uname = f"@{row['username']}" if row['username'] else f"User {row['user_id']}"
             lines.append(f"{medals[i]} {escape_html(uname)}  —  <b>{row['points']} pts</b>")
         text = "\n".join(lines)
 
@@ -817,7 +817,7 @@ async def tool_detail(update: Update, context: CallbackContext):
         if reviews:
             rev_txt = f"\n\n{emoji('REVIEW')} <b>Reviews</b>\n"
             for r in reviews[:3]:
-                uname = f"@{r['username']}" if r.get("username") else "User"
+                uname = f"@{r['username']}" if r['username'] else "User"
                 rev_txt += f"{stars(r['rating'])} <i>{escape_html(r.get('review_text','') or '')}</i> — {escape_html(uname)}\n"
         await send_tool_content(user_id, tool, context)
         await query.edit_message_text(
@@ -826,8 +826,8 @@ async def tool_detail(update: Update, context: CallbackContext):
             f"{rev_txt}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
-                [icon_button(fav_text,              callback_data=f"fav_{tool_id}"),
-                 icon_button("Review",           callback_data=f"review_{tool_id}")],
+                [icon_button(fav_text,              callback_data=f"fav_{tool_id}", emoji_key="FAV"),
+                 icon_button("Review",           callback_data=f"review_{tool_id}", emoji="SEARCH")],
                 [icon_button("My Tools",         callback_data="show_purchases")],
                 [back_btn("show_catalog")],
             ]),
