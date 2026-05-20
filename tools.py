@@ -795,7 +795,7 @@ async def tool_detail(update: Update, context: CallbackContext):
 
     user_id  = query.from_user.id
     is_fav   = db.is_favorite(user_id, tool_id)
-    fav_text = "Unfav" if is_fav else "🤍 Favorite"
+    fav_text = "❤️ Unfav" if is_fav else "🤍 Favorite"
 
     # Already owned → reveal
     if db.user_has_purchased(user_id, tool_id):
