@@ -414,7 +414,7 @@ async def show_category(update: Update, context: CallbackContext):
             reply_markup=InlineKeyboardMarkup([[back_btn("show_categories")]]),
         )
         return
-    rows = keyboard_obj.inline_keyboard
+    rows = list(keyboard_obj.inline_keyboard)
     rows.append([back_btn("show_categories")])
     await query.edit_message_text(
         f"{emoji('TAG')} <b>{escape_html(cat)}</b> tools:\n\n" + msg,
@@ -493,7 +493,7 @@ async def show_favorites(update: Update, context: CallbackContext):
         text = (
             f"{emoji('FAV')} <b>Your Favorites</b>\n\n"
             f"You haven't saved any tools yet.\n"
-            f"Tap ❤️ on any tool detail page to save it!"
+            f"Tap {emoji('HEART')} on any tool detail page to save it!"
         )
         kb = InlineKeyboardMarkup([[back_btn("show_catalog")]])
         if update.callback_query:
@@ -507,8 +507,9 @@ async def show_favorites(update: Update, context: CallbackContext):
         tool = db.get_tool(fav["tool_id"])
         if tool:
             keyboard.append([icon_button(
-                f"🔒 {escape_html(tool['name'])}",
+                f"{escape_html(tool['name'])}",
                 callback_data=f"tool_{tool['id']}",
+                emoji_key="LOCK"
             )])
     keyboard.append([back_btn("show_catalog")])
     text = f"{emoji('FAV')} <b>Your Favorites</b>  ({len(favs)} saved)"
@@ -535,7 +536,7 @@ async def daily_checkin(update: Update, context: CallbackContext):
     if last_checkin == today:
         text = (
             f"{emoji('STREAK')} <b>Already checked in today!</b>\n\n"
-            f"Streak: <b>{streak} day{'s' if streak != 1 else ''}</b> 🔥\n"
+            f"Streak: <b>{streak} day{'s' if streak != 1 else ''}</b> {emoji('FIRE')}\n"
             f"Come back tomorrow to keep it going!"
         )
         kb = InlineKeyboardMarkup([[back_btn("show_catalog")]])
@@ -567,7 +568,7 @@ async def daily_checkin(update: Update, context: CallbackContext):
         f"{'🔥' * min(new_streak, 10)}"
     )
     kb = InlineKeyboardMarkup([
-        [icon_button("Leaderboard", callback_data="show_leaderboard")],
+        [icon_button("Leaderboard", callback_data="show_leaderboard", emoji_key="TROPHY")],
         [back_btn("show_catalog")],
     ])
     if edit:
@@ -615,7 +616,7 @@ async def show_achievements(update: Update, context: CallbackContext):
         if key in unlocked:
             lines.append(f"{icon} <b>{name}</b> — <i>{desc}</i>")
         else:
-            lines.append(f"🔒 <s>{name}</s>")
+            lines.append(f"{emoji('LOCK')}<s>{name}</s>")
 
     kb = InlineKeyboardMarkup([[back_btn("show_catalog")]])
     await send("\n".join(lines), parse_mode=ParseMode.HTML, reply_markup=kb)
@@ -628,7 +629,7 @@ async def review_start(update: Update, context: CallbackContext):
     user_id = query.from_user.id
 
     if not db.user_has_purchased(user_id, tool_id):
-        await query.answer("You must own this tool to leave a review!", show_alert=True)
+        await query.answer("You must own this tool to leave a review, Bro Geezzz!", show_alert=True)
         return ConversationHandler.END
 
     context.user_data["review_tool_id"] = tool_id
@@ -699,9 +700,9 @@ async def points_command(update: Update, context: CallbackContext):
         f"{emoji('GIFT')} Daily check-in earns <b>{get_checkin_reward()} pts</b>!",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([
-            [icon_button("🎯 Claim Daily", callback_data="daily_checkin")],
-            [icon_button("💡 Suggest",     callback_data="suggest_start")],
-            [icon_button("💎 Browse",      callback_data="show_catalog")],
+            [icon_button("Claim Daily", callback_data="daily_checkin", emoji_key="GIFT")],
+            [icon_button("Suggest",     callback_data="suggest_start", emoji_key="bulb")],
+            [icon_button("Browse",      callback_data="show_catalog", emoji_key="TREASURE")],
         ]),
     )
 
@@ -722,9 +723,9 @@ async def show_points(update: Update, context: CallbackContext):
         f"{emoji('GIFT')} Daily check-in earns <b>{get_checkin_reward()} pts</b>!",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([
-            [icon_button("🎯 Claim Daily",   callback_data="daily_checkin")],
-            [icon_button("🏆 Leaderboard",   callback_data="show_leaderboard")],
-            [icon_button("🎖 Achievements",  callback_data="show_achievements")],
+            [icon_button("Claim Daily",   callback_data="daily_checkin", emoji_key="GIFT")],
+            [icon_button("Leaderboard",   callback_data="show_leaderboard", emoji_key="TROPHY")],
+            [icon_button("Achievements",  callback_data="show_achievements", emoji_key="TROPHY")],
             [back_btn("show_catalog")],
         ]),
     )
@@ -827,8 +828,8 @@ async def tool_detail(update: Update, context: CallbackContext):
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
                 [icon_button(fav_text,              callback_data=f"fav_{tool_id}", emoji_key="FAV"),
-                 icon_button("Review",           callback_data=f"review_{tool_id}", emoji="SEARCH")],
-                [icon_button("My Tools",         callback_data="show_purchases")],
+                 icon_button("Review",           callback_data=f"review_{tool_id}", emoji="REVIEW")],
+                [icon_button("My Tools",         callback_data="show_purchases", emoji_key="pack")],
                 [back_btn("show_catalog")],
             ]),
         )
@@ -837,7 +838,7 @@ async def tool_detail(update: Update, context: CallbackContext):
     # Not yet owned
     avg = db.get_avg_rating(tool_id)
     rating_line = f"\n{emoji('STAR')} Rating: <b>{avg:.1f}/5</b>" if avg else ""
-    cat_line    = f"\n🏷️ Category: <b>{escape_html(tool['category','General'])}</b>" if tool["category"] else ""
+    cat_line    = f"\nCategory: <b>{escape_html(tool['category','General'])}</b>" if tool["category"] else ""
 
     msg = (
         f"{emoji('LOCK')} <b>{escape_html(tool['name'])}</b>{cat_line}{rating_line}\n\n"
@@ -851,14 +852,14 @@ async def tool_detail(update: Update, context: CallbackContext):
 
     buy_row = []
     if tool["price_stars"]:
-        buy_row.append(icon_button(f"⭐ {tool['price_stars']} Stars", callback_data=f"buystars_{tool_id}"))
+        buy_row.append(icon_button(f"{tool['price_stars']} Stars", callback_data=f"buystars_{tool_id}", emoji_key="STARS"))
     if tool["price_points"]:
-        buy_row.append(icon_button(f"🏅 {tool['price_points']} pts",  callback_data=f"buypoints_{tool_id}"))
+        buy_row.append(icon_button(f"{tool['price_points']} pts",  callback_data=f"buypoints_{tool_id}", emoji_key="POINTS"))
 
     keyboard = []
     if buy_row:
         keyboard.append(buy_row)
-    keyboard.append([icon_button(fav_text, callback_data=f"fav_{tool_id}")])
+    keyboard.append([icon_button(fav_text, callback_data=f"fav_{tool_id}", emoji_key="FAV")])
     keyboard.append([back_btn("show_catalog")])
 
     await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -885,7 +886,7 @@ async def buy_stars(update: Update, context: CallbackContext):
     await query.edit_message_text(
         f"{emoji('STAR')} Invoice sent!\n\nComplete the payment to unlock <b>{escape_html(tool['name'])}</b>.",
         parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([[icon_button("◀️ Back to Tool", callback_data=f"tool_{tool_id}")]]),
+        reply_markup=InlineKeyboardMarkup([[icon_button("Back to Tool", callback_data=f"tool_{tool_id}", emoji_key="TREASURE")]]),
     )
 
 async def pre_checkout(update: Update, context: CallbackContext):
@@ -908,13 +909,13 @@ async def successful_payment(update: Update, context: CallbackContext):
             f"{emoji('GIFT')} <b>{escape_html(tool['name'])}</b>:\n\n{tool['content']}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([[
-                icon_button("Browse More",  callback_data="show_catalog"),
-                icon_button("My Tools",     callback_data="show_purchases"),
+                icon_button("Browse More",  callback_data="show_catalog", emoji_key="TREASURE"),
+                icon_button("My Tools",     callback_data="show_purchases", emoji_key="pack"),
             ]]),
         )
     else:
         await update.message.reply_text(
-            f"{emoji('WARNING')} Already owned or unavailable.", parse_mode=ParseMode.HTML
+            f"{emoji('WARNING')}\n\nSorry already owned or unavailable.", parse_mode=ParseMode.HTML
         )
 
 # ── Buy with Points ───────────────────────────────────────────────────────────
@@ -944,9 +945,9 @@ async def buy_points_handler(update: Update, context: CallbackContext):
             f"{emoji('bulb')} Or suggest a tool for <b>{get_suggestion_reward()} pts</b>!",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
-                [icon_button("🎯 Daily Reward",  callback_data="daily_checkin")],
-                [icon_button("💡 Suggest",       callback_data="suggest_start")],
-                [icon_button("◀️ Back to Tool",  callback_data=f"tool_{tool_id}")],
+                [icon_button("Daily Reward",  callback_data="daily_checkin", emoji_key="GIFT")],
+                [icon_button("Suggest",       callback_data="suggest_start", emoji_key="bulb")],
+                [icon_button("Back to Tool",  callback_data=f"tool_{tool_id}", emoji_key="BACK")],
                 [back_btn("show_catalog")],
             ]),
         )
@@ -961,8 +962,8 @@ async def buy_points_handler(update: Update, context: CallbackContext):
         f"{emoji('GIFT')} <b>{escape_html(tool['name'])}</b>:\n\n{tool['content']}",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button("💎 Browse More",  callback_data="show_catalog"),
-            icon_button("📦 My Tools",     callback_data="show_purchases"),
+            icon_button("Browse More",  callback_data="show_catalog", emoji_key="TREASURE"),
+            icon_button("My Tools",     callback_data="show_purchases", emoji_key="pack"),
         ]]),
     )
 
@@ -1235,7 +1236,7 @@ async def add_tool_desc(update: Update, context: CallbackContext):
     context.user_data["tdesc"] = update.message.text.strip()
     await update.message.reply_text(
         step_header(3, _ADD_STEPS, "Category") +
-        "Send a <b>category</b> (e.g. Python, DevOps, AI, Productivity) or type <b>skip</b>:\n\n<i>/cancel to abort.</i>",
+        "Send a <b>category</b> (e.g. Python, AI, Productivity, just pick bro) or type <b>skip</b>:\n\n<i>/cancel to abort.</i>",
         parse_mode=ParseMode.HTML,
     )
     return ADD_TOOL_CAT
@@ -1244,8 +1245,8 @@ async def add_tool_cat(update: Update, context: CallbackContext):
     val = update.message.text.strip()
     context.user_data["tcat"] = "" if val.lower() == "skip" else val
     keyboard = InlineKeyboardMarkup([[
-        icon_button("⭐ Stars Only",  callback_data="type_stars"),
-        icon_button("🏅 Points Only", callback_data="type_points"),
+        icon_button("Stars Only",  callback_data="type_stars", emoji_key="STAR"),
+        icon_button("Points Only", callback_data="type_points", emoji_key="POINT"),
         icon_button("⭐🏅 Both",      callback_data="type_both"),
     ], [cancel_btn()]])
     await update.message.reply_text(
@@ -1354,17 +1355,17 @@ async def edit_tool_id(update: Update, context: CallbackContext):
         return EDIT_TOOL_ID
     context.user_data["edit_tool_id"] = tool_id
     keyboard = InlineKeyboardMarkup([
-        [icon_button("📛 Name",        callback_data="editf_name"),
-         icon_button("📋 Description", callback_data="editf_desc")],
-        [icon_button("🏷️ Category",   callback_data="editf_category"),
-         icon_button("📄 Content",     callback_data="editf_content")],
-        [icon_button("⭐ Stars Price",  callback_data="editf_stars"),
-         icon_button("🏅 Points Price", callback_data="editf_points")],
+        [icon_button("Name",        callback_data="editf_name", emoji_key="NAME"),
+         icon_button("Description", callback_data="editf_desc", emoji_key="LIST")],
+        [icon_button("Category",   callback_data="editf_category", emoji_key="TAG"),
+         icon_button("Content",     callback_data="editf_content", emoji_key="EDIT")],
+        [icon_button("Stars Price",  callback_data="editf_stars", emoji_key="STAR"),
+         icon_button("Points Price", callback_data="editf_points", emoji_key="POINT")],
         [cancel_btn()],
     ])
     await update.message.reply_text(
         f"{emoji('INFO')} <b>Tool #{tool_id} — {escape_html(tool['name'])}</b>\n"
-        f"⭐ {tool['price_stars'] or 0}  🏅 {tool['price_points'] or 0}  🏷️ {tool['category','General']}\n\n"
+        f"{emoji('STAR')} {tool['price_stars'] or 0}  {emoji('POINT')} {tool['price_points'] or 0}  {emoji('TAG')} {tool['category','General']}\n\n"
         f"Which field to edit?",
         parse_mode=ParseMode.HTML,
         reply_markup=keyboard,
@@ -1475,8 +1476,8 @@ async def suggest_name(update: Update, context: CallbackContext):
 async def suggest_desc(update: Update, context: CallbackContext):
     context.user_data["sugg_desc"] = update.message.text.strip()
     keyboard = InlineKeyboardMarkup([[
-        icon_button("⭐ Stars",    callback_data="sugg_type_stars"),
-        icon_button("🏅 Points",  callback_data="sugg_type_points"),
+        icon_button("Stars",    callback_data="sugg_type_stars", emoji_key="STAR"),
+        icon_button("Points",  callback_data="sugg_type_points", emoji_key="POINT"),
         icon_button("⭐🏅 Both",  callback_data="sugg_type_both"),
     ], [cancel_btn()]])
     await update.message.reply_text(
@@ -1545,11 +1546,11 @@ async def suggest_content(update: Update, context: CallbackContext):
         ADMIN_ID,
         f"{emoji('bulb')} <b>New Tool Suggestion</b>\n\n"
         f"From: {escape_html(label)}\nName: {escape_html(name)}\nDesc: {escape_html(desc)}\n"
-        f"Price: ⭐{stars_}  🏅{points}\nContent: {escape_html(content[:120])}{'…' if len(content)>120 else ''}",
+        f"Price: {emoji('STAR')}{stars_}  {emoji('POINT')}{points}\nContent: {escape_html(content[:120])}{'…' if len(content)>120 else ''}",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button("Approve", callback_data=f"approvesugg_{sugg_id}"),
-            icon_button("Reject",  callback_data=f"rejectsugg_{sugg_id}"),
+            icon_button("Approve", callback_data=f"approvesugg_{sugg_id}", emoji_key="CHECK"),
+            icon_button("Reject",  callback_data=f"rejectsugg_{sugg_id}", emoji_key="REJECT"),
         ]]),
     )
     context.user_data.clear()
@@ -1610,7 +1611,7 @@ async def suggest_content_file(update: Update, context: CallbackContext):
         f"From: {escape_html(label)}\n"
         f"Name: {escape_html(name)}\n"
         f"Desc: {escape_html(desc)}\n"
-        f"Price: ⭐{stars_}  🏅{points}\n"
+        f"Price: {emoji('STAR')}{stars_}  {emoji('POINT')}{points}\n"
         f"Content: {file_type.upper()} with caption: {escape_html(caption[:120])}",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
@@ -1669,8 +1670,8 @@ async def reject_suggestion(update: Update, context: CallbackContext):
                 f"{emoji('CANCEL')} <b>{escape_html(sugg['name'])}</b> wasn't approved.\n\nKeep contributing! {emoji('HEART')}",
                 parse_mode=ParseMode.HTML,
                 reply_markup=InlineKeyboardMarkup([
-                    [icon_button("💡 Suggest Another", callback_data="suggest_start")],
-                    [icon_button("💎 Browse Tools",    callback_data="show_catalog")],
+                    [icon_button("Suggest Another", callback_data="suggest_start", emoji_key="bulb")],
+                    [icon_button("Browse Tools",    callback_data="show_catalog", emoji_key="TREASURE")],
                 ]),
             )
         except Exception:
