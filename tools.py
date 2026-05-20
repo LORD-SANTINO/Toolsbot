@@ -236,29 +236,29 @@ async def _build_catalog(category: str = None):
         ])
         actions = []
         if tool.get("price_stars"):
-            actions.append(icon_button(f"{tool['price_stars']}", callback_data=f"buystars_{tool['id']}"))
+            actions.append(icon_button(f"{tool['price_stars']}", callback_data=f"buystars_{tool['id']}", emoji_key="STAR"))
         if tool.get("price_points"):
-            actions.append(icon_button(f"{tool['price_points']}", callback_data=f"buypoints_{tool['id']}"))
+            actions.append(icon_button(f"{tool['price_points']}", callback_data=f"buypoints_{tool['id']}", emoji_key="POINT"))
         if actions:
             keyboard.append(actions)
 
     keyboard += [
         [
-            icon_button("Search",       callback_data="search_start"),
-            icon_button("Categories",   callback_data="show_categories"),
+            icon_button("Search",       callback_data="search_start", emoji_key="SEARCH"),
+            icon_button("Categories",   callback_data="show_categories", emoji_key="TAG"),
         ],
         [
-            icon_button("Suggest",      callback_data="suggest_start"),
-            icon_button("Leaderboard",  callback_data="show_leaderboard"),
+            icon_button("Suggest",      callback_data="suggest_start", emoji_key="bulb"),
+            icon_button("Leaderboard",  callback_data="show_leaderboard", emoji_key="TROPHY"),
         ],
         [
-            icon_button("About",        callback_data="show_info"),
-            icon_button("My Points",    callback_data="show_points"),
-            icon_button("My Tools",     callback_data="show_purchases"),
+            icon_button("About",        callback_data="show_info", emoji_key="INFO"),
+            icon_button("My Points",    callback_data="show_points", emoji_key="POINT"),
+            icon_button("My Tools",     callback_data="show_purchases", emoji_key="pack"),
         ],
         [
-            icon_button("Favorites",    callback_data="show_favorites"),
-            icon_button("Daily Reward", callback_data="daily_checkin"),
+            icon_button("Favorites",    callback_data="show_favorites", emoji_key="FAV"),
+            icon_button("Daily Reward", callback_data="daily_checkin", emoji_key="GIFT"),
         ],
     ]
     msg = (
@@ -296,19 +296,19 @@ async def start(update: Update, context: CallbackContext):
             pass
 
     keyboard = InlineKeyboardMarkup([
-        [icon_button("Browse Tools",    callback_data="show_catalog")],
+        [icon_button("Browse Tools",    callback_data="show_catalog", emoji_key="SEARCH")],
         [
-            icon_button("My Points",    callback_data="show_points"),
-            icon_button("My Tools",     callback_data="show_purchases"),
-            icon_button("Favorites",    callback_data="show_favorites"),
+            icon_button("My Points",    callback_data="show_points", emoji_key="POINT"),
+            icon_button("My Tools",     callback_data="show_purchases", emoji_key="Pack"),
+            icon_button("Favorites",    callback_data="show_favorites", emoji_key="FAV"),
         ],
         [
-            icon_button("Daily Reward", callback_data="daily_checkin"),
-            icon_button("Leaderboard",  callback_data="show_leaderboard"),
+            icon_button("Daily Reward", callback_data="daily_checkin", emoji_key="GIFT"),
+            icon_button("Leaderboard",  callback_data="show_leaderboard", emoji_key="TROPHY"),
         ],
         [
-            icon_button("Suggest",      callback_data="suggest_start"),
-            icon_button("About",        callback_data="show_info"),
+            icon_button("Suggest",      callback_data="suggest_start", emoji_key="bulb"),
+            icon_button("About",        callback_data="show_info", emoji_key="INFO"),
         ],
     ])
     await update.message.reply_text(
@@ -354,7 +354,7 @@ async def help_command(update: Update, context: CallbackContext):
         f"/set_checkin_reward &lt;n&gt;\n",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button("Browse Tools", callback_data="show_catalog")
+            icon_button("Browse Tools", callback_data="show_catalog", emoji_key="SEARCH")
         ]]),
     )
 
@@ -394,7 +394,7 @@ async def show_categories(update: Update, context: CallbackContext):
     keyboard = []
     for cat in cats:
         count = db.count_tools_in_category(cat)
-        keyboard.append([icon_button(f"🏷️ {cat}  ({count})", callback_data=f"cat_{cat}")])
+        keyboard.append([icon_button(f"🏷️ {cat}  ({count})", callback_data=f"cat_{cat}", emoji_key="TAG")])
     keyboard.append([back_btn("show_catalog")])
     await query.edit_message_text(
         f"{emoji('TAG')} <b>Categories</b>\n\nBrowse tools by category:",
@@ -414,7 +414,6 @@ async def show_category(update: Update, context: CallbackContext):
             reply_markup=InlineKeyboardMarkup([[back_btn("show_categories")]]),
         )
         return
-    # inject a "back to categories" row
     rows = keyboard_obj.inline_keyboard
     rows.append([back_btn("show_categories")])
     await query.edit_message_text(
@@ -446,7 +445,7 @@ async def search_query(update: Update, context: CallbackContext):
             f"{emoji('WARNING')} No tools found for <b>{escape_html(q)}</b>.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
-                [icon_button("Search Again", callback_data="search_start")],
+                [icon_button("Search Again", callback_data="search_start", emoji_key="SEARCH")],
                 [back_btn("show_catalog")],
             ]),
         )
@@ -457,7 +456,7 @@ async def search_query(update: Update, context: CallbackContext):
         avg = db.get_avg_rating(tool["id"])
         rating_str = f" {stars(round(avg))}" if avg else ""
         keyboard.append([
-            icon_button(f"🔒{escape_html(tool['name'])}{rating_str}", callback_data=f"tool_{tool['id']}")
+            icon_button(f"{escape_html(tool['name'])}{rating_str}", callback_data=f"tool_{tool['id']}", emoji_key="LOCK")
         ])
     keyboard.append([back_btn("show_catalog")])
     await update.message.reply_text(
@@ -770,6 +769,25 @@ async def show_purchases(update: Update, context: CallbackContext):
         reply_markup=InlineKeyboardMarkup([[back_btn("show_catalog")]]),
     )
 
+async def send_tool_content(chat_id, tool, context: CallbackContext):
+    """Send the actual content (text or file) of a tool."""
+    content = tool['content']
+    if content.startswith('[PHOTO:'):
+        file_id = content[7:-1]   # extract file_id
+        caption = content[len(file_id)+8:] if '\n' in content else ''
+        await context.bot.send_photo(chat_id, file_id, caption=caption or tool['name'])
+    elif content.startswith('[DOCUMENT:'):
+        parts = content[10:-1].split(':', 1)
+        file_id = parts[0]
+        caption = content.split('\n', 1)[1] if '\n' in content else ''
+        await context.bot.send_document(chat_id, file_id, caption=caption or tool['name'])
+    elif content.startswith('[VIDEO:'):
+        file_id = content[9:-1]
+        caption = content.split('\n', 1)[1] if '\n' in content else ''
+        await context.bot.send_video(chat_id, file_id, caption=caption or tool['name'])
+    else:
+        # plain text
+        await context.bot.send_message(chat_id, content, parse_mode=ParseMode.HTML)
 # ── Tool Detail (with favorites + review button) ──────────────────────────────
 async def tool_detail(update: Update, context: CallbackContext):
     query   = update.callback_query
@@ -801,6 +819,7 @@ async def tool_detail(update: Update, context: CallbackContext):
             for r in reviews[:3]:
                 uname = f"@{r['username']}" if r.get("username") else "User"
                 rev_txt += f"{stars(r['rating'])} <i>{escape_html(r.get('review_text','') or '')}</i> — {escape_html(uname)}\n"
+        await send_tool_content(user_id, tool, context)
         await query.edit_message_text(
             f"{emoji('UNLOCK')} <b>{escape_html(tool['name'])}</b> — yours!\n\n"
             f"{tool['content']}"
@@ -808,8 +827,8 @@ async def tool_detail(update: Update, context: CallbackContext):
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
                 [icon_button(fav_text,              callback_data=f"fav_{tool_id}"),
-                 icon_button("✍️ Review",           callback_data=f"review_{tool_id}")],
-                [icon_button("📦 My Tools",         callback_data="show_purchases")],
+                 icon_button("Review",           callback_data=f"review_{tool_id}")],
+                [icon_button("My Tools",         callback_data="show_purchases")],
                 [back_btn("show_catalog")],
             ]),
         )
@@ -883,13 +902,14 @@ async def successful_payment(update: Update, context: CallbackContext):
     if tool and not db.user_has_purchased(user_id, tool_id):
         db.record_purchase(user_id, tool_id, "stars")
         await check_and_award(context.bot, user_id, "purchase")
+        await send_tool_content(user_id, tool, context)
         await update.message.reply_text(
             f"{emoji('party')} <b>Payment successful!</b>\n\n"
             f"{emoji('GIFT')} <b>{escape_html(tool['name'])}</b>:\n\n{tool['content']}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([[
-                icon_button("💎 Browse More",  callback_data="show_catalog"),
-                icon_button("📦 My Tools",     callback_data="show_purchases"),
+                icon_button("Browse More",  callback_data="show_catalog"),
+                icon_button("My Tools",     callback_data="show_purchases"),
             ]]),
         )
     else:
@@ -935,6 +955,7 @@ async def buy_points_handler(update: Update, context: CallbackContext):
     db.deduct_points(user_id, needed)
     db.record_purchase(user_id, tool_id, "points")
     await check_and_award(context.bot, user_id, "purchase")
+    await send_tool_content(user_id, tool, context)
     await query.edit_message_text(
         f"{emoji('party')} <b>Unlocked!</b>  Spent <b>{needed} pts</b>.\n\n"
         f"{emoji('GIFT')} <b>{escape_html(tool['name'])}</b>:\n\n{tool['content']}",
@@ -1527,13 +1548,79 @@ async def suggest_content(update: Update, context: CallbackContext):
         f"Price: ⭐{stars_}  🏅{points}\nContent: {escape_html(content[:120])}{'…' if len(content)>120 else ''}",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([[
-            icon_button("✅ Approve", callback_data=f"approvesugg_{sugg_id}"),
-            icon_button("❌ Reject",  callback_data=f"rejectsugg_{sugg_id}"),
+            icon_button("Approve", callback_data=f"approvesugg_{sugg_id}"),
+            icon_button("Reject",  callback_data=f"rejectsugg_{sugg_id}"),
         ]]),
     )
     context.user_data.clear()
     return ConversationHandler.END
 
+async def suggest_content_file(update: Update, context: CallbackContext):
+    """Handle file submissions for suggestions"""
+    user_id = update.effective_user.id
+    name = context.user_data.get("sugg_name", "")
+    desc = context.user_data.get("sugg_desc", "")
+    stars_ = context.user_data.get("sugg_price_stars", 0)
+    points = context.user_data.get("sugg_price_points", 0)
+
+    # Extract file details
+    if update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        file_type = "photo"
+        content = f"[PHOTO:{file_id}]"
+    elif update.message.document:
+        file_id = update.message.document.file_id
+        file_type = "document"
+        content = f"[DOCUMENT:{file_id}:{update.message.document.file_name}]"
+    elif update.message.video:
+        file_id = update.message.video.file_id
+        file_type = "video"
+        content = f"[VIDEO:{file_id}]"
+    else:
+        await update.message.reply_text(
+            f"{emoji('CANCEL')} Unsupported file type. Please send a photo, document, or video.",
+            parse_mode=ParseMode.HTML
+        )
+        return SUGGEST_CONTENT
+
+    caption = update.message.caption or ""
+    full_content = f"{content}\n{caption}" if caption else content
+
+    db.save_suggestion(user_id, name, desc, stars_, points, 0, "", full_content)
+
+    await update.message.reply_text(
+        f"{emoji('CHECK')} <b>Suggestion submitted!</b>\n\n"
+        f"Type: {file_type}\n"
+        f"Thanks {emoji('party')}  You'll earn <b>{get_suggestion_reward()} pts</b> if approved!",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup([
+            [icon_button("Back to Catalog", emoji_key="BACK", callback_data="show_catalog")]
+        ]),
+    )
+
+    # Notify admin (same as before)
+    suggs = db.get_pending_suggestions()
+    sugg = next((s for s in suggs if s["name"] == name and s["user_id"] == user_id), None)
+    sugg_id = sugg["id"] if sugg else 0
+    label = f"@{update.effective_user.username}" if update.effective_user.username else str(user_id)
+
+    await context.bot.send_message(
+        ADMIN_ID,
+        f"{emoji('bulb')} <b>New Tool Suggestion</b>\n\n"
+        f"From: {escape_html(label)}\n"
+        f"Name: {escape_html(name)}\n"
+        f"Desc: {escape_html(desc)}\n"
+        f"Price: ⭐{stars_}  🏅{points}\n"
+        f"Content: {file_type.upper()} with caption: {escape_html(caption[:120])}",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup([[
+            icon_button("Approve", emoji_key="CHECK", callback_data=f"approvesugg_{sugg_id}"),
+            icon_button("Reject", emoji_key="CANCEL", callback_data=f"rejectsugg_{sugg_id}"),
+        ]]),
+    )
+
+    context.user_data.clear()
+    return ConversationHandler.END
 # ── Approve / Reject Suggestion ───────────────────────────────────────────────
 async def approve_suggestion(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -1627,7 +1714,10 @@ def main():
             SUGGEST_DESC:        [MessageHandler(filters.TEXT & ~filters.COMMAND, suggest_desc)],
             SUGGEST_TYPE:        [CallbackQueryHandler(suggest_choose_type, pattern="^sugg_type_")],
             SUGGEST_ENTER_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, suggest_enter_price)],
-            SUGGEST_CONTENT:     [MessageHandler(filters.TEXT & ~filters.COMMAND, suggest_content)],
+            SUGGEST_CONTENT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, suggest_content),
+                MessageHandler(filters.PHOTO | filters.Document.ALL | filters.VIDEO, suggest_content_file),
+			],
         },
         fallbacks=[CommandHandler("cancel", cancel_all),
                    CallbackQueryHandler(conv_cancel_callback, pattern="^conv_cancel$")],
