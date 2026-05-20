@@ -235,9 +235,9 @@ async def _build_catalog(category: str = None):
             )
         ])
         actions = []
-        if tool.get("price_stars"):
+        if tool["price_stars"]:
             actions.append(icon_button(f"{tool['price_stars']}", callback_data=f"buystars_{tool['id']}", emoji_key="STAR"))
-        if tool.get("price_points"):
+        if tool["price_points"]:
             actions.append(icon_button(f"{tool['price_points']}", callback_data=f"buypoints_{tool['id']}", emoji_key="POINT"))
         if actions:
             keyboard.append(actions)
@@ -837,22 +837,22 @@ async def tool_detail(update: Update, context: CallbackContext):
     # Not yet owned
     avg = db.get_avg_rating(tool_id)
     rating_line = f"\n{emoji('STAR')} Rating: <b>{avg:.1f}/5</b>" if avg else ""
-    cat_line    = f"\n🏷️ Category: <b>{escape_html(tool.get('category','General'))}</b>" if tool.get("category") else ""
+    cat_line    = f"\n🏷️ Category: <b>{escape_html(tool['category','General'])}</b>" if tool["category"] else ""
 
     msg = (
         f"{emoji('LOCK')} <b>{escape_html(tool['name'])}</b>{cat_line}{rating_line}\n\n"
         f"{emoji('paper')} {escape_html(tool['description'])}\n\n"
         f"<b>Unlock with:</b>\n"
     )
-    if tool.get("price_stars"):
+    if tool["price_stars"]:
         msg += f"  {emoji('STAR')} <b>{tool['price_stars']}</b> Telegram Stars\n"
-    if tool.get("price_points"):
+    if tool["price_points"]:
         msg += f"  {emoji('POINT')} <b>{tool['price_points']}</b> Points\n"
 
     buy_row = []
-    if tool.get("price_stars"):
+    if tool["price_stars"]:
         buy_row.append(icon_button(f"⭐ {tool['price_stars']} Stars", callback_data=f"buystars_{tool_id}"))
-    if tool.get("price_points"):
+    if tool["price_points"]:
         buy_row.append(icon_button(f"🏅 {tool['price_points']} pts",  callback_data=f"buypoints_{tool_id}"))
 
     keyboard = []
@@ -871,14 +871,14 @@ async def buy_stars(update: Update, context: CallbackContext):
     user_id = query.from_user.id
     tool    = db.get_tool(tool_id)
 
-    if not tool or not tool.get("price_stars"):
+    if not tool or not tool["price_stars"]:
         await query.answer("Invalid tool.", show_alert=True); return
     if db.user_has_purchased(user_id, tool_id):
         await query.answer("You already own this!", show_alert=True); return
 
     await context.bot.send_invoice(
         chat_id=user_id, title=tool["name"],
-        description=(tool.get("description") or tool["name"])[:255],
+        description=(tool["description"] or tool["name"])[:255],
         payload=f"stars_{tool_id}", provider_token="", currency="XTR",
         prices=[LabeledPrice("Stars", tool["price_stars"])],
     )
@@ -925,7 +925,7 @@ async def buy_points_handler(update: Update, context: CallbackContext):
     user_id = query.from_user.id
     tool    = db.get_tool(tool_id)
 
-    if not tool or not tool.get("price_points"):
+    if not tool or not tool["price_points"]:
         await query.answer("Invalid tool.", show_alert=True); return
     if db.user_has_purchased(user_id, tool_id):
         await query.answer("You already own this!", show_alert=True); return
@@ -1364,7 +1364,7 @@ async def edit_tool_id(update: Update, context: CallbackContext):
     ])
     await update.message.reply_text(
         f"{emoji('INFO')} <b>Tool #{tool_id} — {escape_html(tool['name'])}</b>\n"
-        f"⭐ {tool.get('price_stars') or 0}  🏅 {tool.get('price_points') or 0}  🏷️ {tool.get('category','General')}\n\n"
+        f"⭐ {tool['price_stars'] or 0}  🏅 {tool['price_points'] or 0}  🏷️ {tool['category','General']}\n\n"
         f"Which field to edit?",
         parse_mode=ParseMode.HTML,
         reply_markup=keyboard,
