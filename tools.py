@@ -14,7 +14,7 @@ from database import Database
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+    level=logging.ERROR,
 )
 logger = logging.getLogger(__name__)
 
