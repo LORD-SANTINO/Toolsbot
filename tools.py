@@ -1019,7 +1019,7 @@ async def send_tool_content(chat_id, tool, context: CallbackContext):
         await context.bot.send_video(chat_id, file_id, caption=caption or tool['name'])
     else:
         # plain text
-        await context.bot.send_message(chat_id, content, parse_mode=ParseMode.HTML)
+        await context.bot.send_message(chat_id, content, parse_mode=None)
 # ── Tool Detail (with favorites + review button) ──────────────────────────────
 async def tool_detail(update: Update, context: CallbackContext):
     query   = update.callback_query
@@ -1481,7 +1481,7 @@ async def add_tool_cat(update: Update, context: CallbackContext):
     ], [cancel_btn()]])
     await update.message.reply_text(
         step_header(4, _ADD_STEPS, "Payment Method") +
-        "How can users unlock this tool?",
+        f"How can users unlock this tool?\n\n<i>Tip: Points is better{emoji('TEETH')} </i>",
         parse_mode=ParseMode.HTML,
         reply_markup=keyboard,
     )
@@ -1592,7 +1592,7 @@ async def add_tool_content(update: Update, context: CallbackContext):
     d      = context.user_data
     stars_ = d.get("tprice_stars", 0)
     points = d.get("tprice_points", 0)
-    db.add_tool(d["tname"], d["tdesc"], stars_, points, 0, "", update.message.text.strip(),
+    db.add_tool(d["tname"], d["tdesc"], stars_, points, 0, "", update.message.text,
                 category=d.get("tcat", ""))
     price_parts = ([f"{emoji('STAR')} {stars_}"] if stars_ else []) + ([f"{emoji('POINT')} {points}"] if points else [])
     await update.message.reply_text(
@@ -1812,7 +1812,7 @@ async def suggest_content(update: Update, context: CallbackContext):
         f"{emoji('CHECK')} <b>Suggestion submitted!</b>\n\n"
         f"Thanks {emoji('party')}  You'll earn <b>{get_suggestion_reward()} pts</b> if approved!",
         parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([[icon_button("💎 Back to Catalog", callback_data="show_catalog")]]),
+        reply_markup=InlineKeyboardMarkup([[icon_button("Back to Catalog", callback_data="show_catalog", emoji_key="BACK")]]),
     )
     suggs   = db.get_pending_suggestions()
     sugg    = next((s for s in suggs if s["name"] == name and s["user_id"] == user_id), None)
@@ -2118,6 +2118,7 @@ def main():
     app.add_handler(CommandHandler("help",                  help_command))
     app.add_handler(CommandHandler("tools",                 tools))
     app.add_handler(CommandHandler("points",                points_command))
+    app.add_handler(CommandHandler("add", add_points_cmd))
     app.add_handler(CommandHandler("my_purchases",          my_purchases))
     app.add_handler(CommandHandler("favorites",             show_favorites))
     app.add_handler(CommandHandler("checkin",               daily_checkin))
