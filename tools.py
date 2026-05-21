@@ -8,7 +8,7 @@ from telegram.ext import (
     MessageHandler, filters, PreCheckoutQueryHandler, CallbackContext, InlineQueryHandler
 )
 from telegram.constants import ParseMode
-from config import BOT_TOKEN, ADMIN_ID, DB_PATH, INVITE_POINTS
+from config import BOT_TOKEN, ADMIN_ID, DB_PATH, INVITE_POINTS, REQUIRED_CHANNELS
 from database import Database
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -24,6 +24,7 @@ db = Database(DB_PATH)
 PREMIUM_EMOJIS = {
     "STAR":     ("5994495149336434048", "⭐"),
     "POINT":    ("5345843457145453967", "🏅"),
+    "IMAGE": ("5931629923478278721", "🖼️"),
     "LOCK":     ("6037249452824072506", "🔒"),
     "UNLOCK":   ("6034962180875490251", "🔓"),
     "CHECK":    ("5260416304224936047", "✅"),
@@ -236,7 +237,6 @@ def stars(n: int) -> str:
     return "⭐" * n + "☆" * (5 - n)
 
 # ── Achievement engine ────────────────────────────────────────────────────────
-@force_join
 async def check_and_award(bot, user_id: int, trigger: str):
     """Award achievements based on trigger events. Notifies user on unlock."""
     unlocked = db.get_user_achievements(user_id)
@@ -285,7 +285,6 @@ async def check_and_award(bot, user_id: int, trigger: str):
             pass
 
 # ── Cancel helpers ────────────────────────────────────────────────────────────
-@force_join
 async def cancel_all(update: Update, context: CallbackContext):
     context.user_data.clear()
     msg, keyboard, _ = await _build_catalog()
@@ -311,7 +310,6 @@ async def conv_cancel_callback(update: Update, context: CallbackContext):
 # ── Catalog builder ───────────────────────────────────────────────────────────
 ITEMS_PER_PAGE = 5  # Tools per page
 
-@force_join
 async def _build_catalog(category: str = None, page: int = 0):
     """Build catalog with pagination."""
     tools_list = db.get_all_active_tools(category=category)
@@ -382,7 +380,6 @@ async def _build_catalog(category: str = None, page: int = 0):
     )
     return msg, InlineKeyboardMarkup(keyboard), total_pages
 
-@force_join
 async def send_tool_detail_message(chat_id, user_id, tool_id, context: CallbackContext):
     """Send the tool detail (not-owned version) to a chat."""
     tool = db.get_tool(tool_id)
@@ -573,7 +570,7 @@ async def tools(update: Update, context: CallbackContext):
         return
     await update.message.reply_text(msg, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
-
+@force_join
 async def show_catalog(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -595,40 +592,52 @@ async def show_catalog(update: Update, context: CallbackContext):
 # ── Inline Mode Handler ──────────────────────────────────────────────────────
 def build_tool_inline_result(tool, bot_username):
     """Helper: create an InlineQueryResultArticle for a tool."""
-    avg = db.get_avg_rating(tool['id'])
+    avg = db.get_avg_rating(tool["id"])
     stars_str = stars(round(avg)) if avg else ""
-    desc_parts = [tool['category'] or 'General']
+    desc_parts = [tool["category"] or "General"]
     prices = []
-    if tool['price_stars']:
+
+    if tool["price_stars"]:
         prices.append(f"⭐{tool['price_stars']}")
-    if tool['price_points']:
+    if tool["price_points"]:
         prices.append(f"🏅{tool['price_points']}")
+
     if prices:
         desc_parts.append(" ".join(prices))
     else:
         desc_parts.append("Free")
+
     if stars_str:
         desc_parts.append(stars_str)
     description = " | ".join(desc_parts)
 
+    # Escape texts safely
+    safe_name = html.escape(tool["name"])
+    safe_desc = html.escape(tool["description"])
+    unlock_text = " ".join(prices) if prices else "Free"
+
     return InlineQueryResultArticle(
         id=f"tool_{tool['id']}",
-        title=tool['name'],
+        title=tool["name"],
         description=description,
         input_message_content=InputTextMessageContent(
             message_text=(
-                f"🔒 <b>{escape_html(tool['name'])}</b>\n"
-                f"{escape_html(tool['description'])}\n\n"
-                f"<b>Unlock with:</b> {' '.join(prices) if prices else 'Free'}"
+                f"🔒 <b>{safe_name}</b>\n"
+                f"{safe_desc}\n\n"
+                f"<b>Unlock with:</b> {unlock_text}"
             ),
             parse_mode=ParseMode.HTML,
         ),
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                "🔍 View & Buy",
-                switch_pm_parameter=f"tool_{tool['id']}",
-            )
-        ]]),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🔍 View & Buy",
+                        url=f"https://t.me{bot_username}?start=tool_{tool['id']}",
+                    )
+                ]
+            ]
+        ),
     )
 
 
@@ -652,24 +661,30 @@ async def inline_query(update: Update, context: CallbackContext):
                         message_text=f"📁 Browse {cat} tools",
                         parse_mode=ParseMode.HTML,
                     ),
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(
-                            f"Open {cat} tools in bot",
-                            switch_pm_parameter=f"category:{cat}",
-                        )
-                    ]]),
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    f"Open {cat} tools in bot",
+                                    url=f"https://t.me{bot_username}?start=category_{cat}",
+                                )
+                            ]
+                        ]
+                    ),
                 )
             )
         await update.inline_query.answer(results, cache_time=0)
         return
 
     # ─── Specific keywords ──────────────────────────────────────────────────
-    if query_text.lower() in ("random", "r"):
+    query_lower = query_text.lower()
+
+    if query_lower in ("random", "r"):
         all_tools = db.get_all_active_tools()
         if all_tools:
             tool = random.choice(all_tools)
             results.append(build_tool_inline_result(tool, bot_username))
-    elif query_text.lower() in ("favs", "favorites", "favourites"):
+    elif query_lower in ("favs", "favorites", "favourites"):
         favs = db.get_favorites(user_id)
         for fav in favs[:10]:
             tool = db.get_tool(fav["tool_id"])
@@ -1094,7 +1109,6 @@ async def show_purchases(update: Update, context: CallbackContext):
         reply_markup=InlineKeyboardMarkup([[back_btn("show_catalog")]]),
     )
 
-@force_join
 async def send_tool_content(chat_id, tool, context: CallbackContext):
     """Send the actual content (text or file) of a tool."""
     content = tool['content']
@@ -1216,7 +1230,6 @@ async def buy_stars(update: Update, context: CallbackContext):
 async def pre_checkout(update: Update, context: CallbackContext):
     await update.pre_checkout_query.answer(ok=True)
 
-@force_join
 async def successful_payment(update: Update, context: CallbackContext):
     payload = update.message.successful_payment.invoice_payload
     if not payload.startswith("stars_"):
@@ -1293,6 +1306,7 @@ async def buy_points_handler(update: Update, context: CallbackContext):
     )
 
 # ── Info ──────────────────────────────────────────────────────────────────────
+@force_join
 async def show_info(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -1567,7 +1581,6 @@ async def add_tool_desc(update: Update, context: CallbackContext):
     )
     return ADD_TOOL_CAT
 
-@force_join
 async def add_tool_cat(update: Update, context: CallbackContext):
     val = update.message.text.strip()
     context.user_data["tcat"] = "" if val.lower() == "skip" else val
@@ -1686,7 +1699,6 @@ async def add_tool_price_points(update: Update, context: CallbackContext):
     )
     return ADD_TOOL_CONTENT
 
-@force_join
 async def add_tool_content(update: Update, context: CallbackContext):
     d      = context.user_data
     stars_ = d.get("tprice_stars", 0)
