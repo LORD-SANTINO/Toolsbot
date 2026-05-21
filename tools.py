@@ -5,7 +5,7 @@ from datetime import date, datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, ConversationHandler,
-    MessageHandler, filters, PreCheckoutQueryHandler, CallbackContext,
+    MessageHandler, filters, PreCheckoutQueryHandler, CallbackContext, InlineQueryHandler
 )
 from telegram.constants import ParseMode
 from config import BOT_TOKEN, ADMIN_ID, DB_PATH, INVITE_POINTS
@@ -145,7 +145,9 @@ def get_checkin_reward() -> int:
     return int(v) if v else 10
 
 def stars(n: int) -> str:
-    n = max(1, min(5, n))
+    if n <= 0:
+        return "☆☆☆☆☆"
+    n = min(5, n)
     return "⭐" * n + "☆" * (5 - n)
 
 # ── Achievement engine ────────────────────────────────────────────────────────
@@ -1009,7 +1011,6 @@ async def tool_detail(update: Update, context: CallbackContext):
         await send_tool_content(user_id, tool, context)
         await query.edit_message_text(
             f"{emoji('UNLOCK')} <b>{escape_html(tool['name'])}</b> — yours!\n\n"
-            f"{tool['content']}"
             f"{rev_txt}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
@@ -1024,7 +1025,7 @@ async def tool_detail(update: Update, context: CallbackContext):
     # Not yet owned
     avg = db.get_avg_rating(tool_id)
     rating_line = f"\n{emoji('STAR')} Rating: <b>{avg:.1f}/5</b>" if avg else ""
-    cat_line    = f"\nCategory: <b>{escape_html(tool['category','General'])}</b>" if tool["category"] else ""
+    cat_line    = f"\nCategory: <b>{escape_html(tool['category'])}</b>" if tool["category"] else ""
 
     msg = (
         f"{emoji('LOCK')} <b>{escape_html(tool['name'])}</b>{cat_line}{rating_line}\n\n"
@@ -1491,24 +1492,24 @@ async def add_tool_content_file(update: Update, context: CallbackContext):
     points = d.get("tprice_points", 0)
 
     # Determine file type and build content string
-    if update.message.photo:
-        file_id = update.message.photo[-1].file_id
-        file_type = "photo"
-        content = f"[PHOTO:{file_id}]"
-    elif update.message.document:
-        file_id = update.message.document.file_id
+    # In add_tool_content_file and suggest_content_file
+    if update.message.document:
         file_type = "document"
-        content = f"[DOCUMENT:{file_id}:{update.message.document.file_name}]"
+        file_id = update.message.document.file_id
+        content = f"[DOCUMENT:{file_id}]"
+    elif update.message.photo:
+        file_type = "photo"
+        file_id = update.message.photo[-1].file_id
+        content = f"[PHOTO:{file_id}]"
     elif update.message.video:
-        file_id = update.message.video.file_id
         file_type = "video"
+        file_id = update.message.video.file_id
         content = f"[VIDEO:{file_id}]"
     else:
-        await update.message.reply_text(
-            f"{emoji('CANCEL')} Unsupported file type. Please send a photo, document, or video.",
-            parse_mode=ParseMode.HTML
-        )
+        # unsupported
         return ADD_TOOL_CONTENT
+
+    # Save full_content to DB
 
     caption = update.message.caption or ""
     full_content = f"{content}\n{caption}" if caption else content
@@ -1797,23 +1798,25 @@ async def suggest_content_file(update: Update, context: CallbackContext):
     points = context.user_data.get("sugg_price_points", 0)
 
     # Extract file details
-    if update.message.photo:
-        file_id = update.message.photo[-1].file_id
-        file_type = "photo"
-        content = f"[PHOTO:{file_id}]"
-    elif update.message.document:
-        file_id = update.message.document.file_id
+    # In add_tool_content_file and suggest_content_file
+    if update.message.document:
         file_type = "document"
-        content = f"[DOCUMENT:{file_id}:{update.message.document.file_name}]"
+        file_id = update.message.document.file_id
+        content = f"[DOCUMENT:{file_id}]"
+    elif update.message.photo:
+        file_type = "photo"
+        file_id = update.message.photo[-1].file_id
+        content = f"[PHOTO:{file_id}]"
     elif update.message.video:
-        file_id = update.message.video.file_id
         file_type = "video"
+        file_id = update.message.video.file_id
         content = f"[VIDEO:{file_id}]"
     else:
         await update.message.reply_text(
-            f"{emoji('CANCEL')} Unsupported file type. Please send a photo, document, or video.",
+            f"{emoji('CANCEL')} Unsupported file type. Please send a photo, document or video.",
             parse_mode=ParseMode.HTML
         )
+        # unsupported
         return SUGGEST_CONTENT
 
     caption = update.message.caption or ""
@@ -1932,7 +1935,7 @@ def main():
             ADD_TOOL_PRICE_POINTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_tool_price_points)],
             ADD_TOOL_CONTENT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, add_tool_content),
-                MessageHandler(filters.PHOTO | filters.Document.ALL | filters.VIDEO, add_tool_content_file),
+                MessageHandler(filters.PHOTO | filters.Document.ALL & ~filters.COMMAND | filters.VIDEO, add_tool_content_file),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_all),
@@ -1952,7 +1955,7 @@ def main():
             SUGGEST_ENTER_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, suggest_enter_price)],
             SUGGEST_CONTENT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, suggest_content),
-                MessageHandler(filters.PHOTO | filters.Document.ALL | filters.VIDEO, suggest_content_file),
+                MessageHandler(filters.PHOTO | filters.Document.ALL & ~filters.COMMAND | filters.VIDEO, suggest_content_file),
 			],
         },
         fallbacks=[CommandHandler("cancel", cancel_all),
