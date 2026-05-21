@@ -150,28 +150,36 @@ def get_checkin_reward() -> int:
 from functools import wraps
 
 # ── Force Join Helper ─────────────────────────────────────────────────────────
-async def _send_join_required(update: Update, context: CallbackContext, missing_channels: list, original_callback_data: str = None):
+async def _send_join_required(update: Update, context: CallbackContext, missing_channels: list,
+                              original_callback_data: str = None):
     """Send a message asking to join required channels."""
     keyboard = []
     for ch in missing_channels:
-        # ch is like "@channel"
         url = f"https://t.me/{ch[1:]}" if ch.startswith('@') else f"https://t.me/{ch}"
-        keyboard.append([InlineKeyboardButton(f"Join Channel", url=url)])
-    # Add check button
-    keyboard.append([InlineKeyboardButton("I have joined", callback_data="check_join")])
+        keyboard.append([icon_button(f"Join {ch}", url=url, emoji_key="LINK")])
 
-    text = f"{emoji('LOCK')}<b>Access Restricted</b>\n\nYou must join the following channels to use this bot:\n\n"
+    # Add check button
+    keyboard.append([icon_button("I have joined", callback_data="check_join", emoji_key="CHECK")])
+
+    text = f"{emoji('LOCK')} <b>Access Restricted</b>\n\nYou must join the following channels to use this bot:\n\n"
     for ch in missing_channels:
         text += f"• {ch}\n"
     text += "\nAfter joining, click the button below."
 
     if update.callback_query:
-        # store original callback data so we can retry later
         if original_callback_data:
             context.user_data["pending_callback"] = original_callback_data
-        await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.callback_query.edit_message_text(
+            text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
     else:
-        await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
 async def _is_user_joined_all(user_id: int, context: CallbackContext) -> tuple:
     """Return (joined: bool, missing_channels: list)."""
