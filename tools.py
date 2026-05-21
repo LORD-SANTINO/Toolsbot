@@ -156,7 +156,7 @@ async def _send_join_required(update: Update, context: CallbackContext, missing_
     keyboard = []
     for ch in missing_channels:
         url = f"https://t.me/{ch[1:]}" if ch.startswith('@') else f"https://t.me/{ch}"
-        keyboard.append([icon_button(f"Join {ch}", url=url, emoji_key="LINK")])
+        keyboard.append([icon_button(f"Join Channel", url=url, emoji_key="LINK")])
 
     # Add check button
     keyboard.append([icon_button("I have joined", callback_data="check_join", emoji_key="CHECK")])
