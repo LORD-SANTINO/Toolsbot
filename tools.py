@@ -156,7 +156,7 @@ async def _send_join_required(update: Update, context: CallbackContext, missing_
     keyboard = []
     for ch in missing_channels:
         url = f"https://t.me/{ch[1:]}" if ch.startswith('@') else f"https://t.me/{ch}"
-        keyboard.append([icon_button(f"Join Channel", url=url, emoji_key="LINK")])
+        keyboard.append([icon_button(f"Join {ch}", url=url, emoji_key="LINK")])
 
     # Add check button
     keyboard.append([icon_button("I have joined", callback_data="check_join", emoji_key="CHECK")])
@@ -1599,7 +1599,7 @@ async def add_tool_cat(update: Update, context: CallbackContext):
     ], [cancel_btn()]])
     await update.message.reply_text(
         step_header(4, _ADD_STEPS, "Payment Method") +
-        f"How can users unlock this tool?\n\n<i>Tip: Points is better{emoji('TEETH')} </i>",
+        f"How can users unlock this tool?\n\n<b>Tip:</b> Points is better",
         parse_mode=ParseMode.HTML,
         reply_markup=keyboard,
     )
@@ -1613,14 +1613,14 @@ async def add_tool_type(update: Update, context: CallbackContext):
     if ptype in ("stars", "both"):
         await query.edit_message_text(
             step_header(5, _ADD_STEPS, "Stars Price") +
-            "Enter the <b>Stars</b> price (positive integer):\n\n<i>/cancel to abort.</i>",
+            "Enter the <b>Stars</b> price (positive number):\n\n<i>/cancel to abort.</i>",
             parse_mode=ParseMode.HTML,
         )
         return ADD_TOOL_PRICE_STARS
     else:
         await query.edit_message_text(
             step_header(5, _ADD_STEPS, "Points Price") +
-            "Enter the <b>Points</b> price (positive integer):\n\n<i>/cancel to abort.</i>",
+            "Enter the <b>Points</b> price (positive number):\n\n<i>/cancel to abort.</i>",
             parse_mode=ParseMode.HTML,
         )
         return ADD_TOOL_PRICE_POINTS
@@ -1629,7 +1629,7 @@ async def add_tool_price_stars(update: Update, context: CallbackContext):
     try:
         price = int(update.message.text); assert price > 0
     except (ValueError, AssertionError):
-        await update.message.reply_text(f"{emoji('CANCEL')} Positive integer please:")
+        await update.message.reply_text(f"{emoji('CANCEL')} Positive number please:")
         return ADD_TOOL_PRICE_STARS
     context.user_data["tprice_stars"] = price
     if context.user_data.get("ttype") == "both":
@@ -1697,7 +1697,7 @@ async def add_tool_price_points(update: Update, context: CallbackContext):
     try:
         price = int(update.message.text); assert price > 0
     except (ValueError, AssertionError):
-        await update.message.reply_text(f"{emoji('CANCEL')} Positive integer please:")
+        await update.message.reply_text(f"{emoji('CANCEL')} Positive number please:")
         return ADD_TOOL_PRICE_POINTS
     context.user_data["tprice_points"] = price
     await update.message.reply_text(
@@ -1794,7 +1794,7 @@ async def edit_tool_value(update: Update, context: CallbackContext):
         try:
             value = int(value); assert value >= 0
         except (ValueError, AssertionError):
-            await update.message.reply_text(f"{emoji('CANCEL')} Non-negative integer:\n<i>/cancel to abort.</i>", parse_mode=ParseMode.HTML)
+            await update.message.reply_text(f"{emoji('CANCEL')} Non-negative number:\n<i>/cancel to abort.</i>", parse_mode=ParseMode.HTML)
             return EDIT_TOOL_VALUE
     elif field == "category" and value.lower() == "skip":
         value = ""
@@ -1890,7 +1890,7 @@ async def suggest_choose_type(update: Update, context: CallbackContext):
     label = "Stars" if ptype in ("stars", "both") else "Points"
     await query.edit_message_text(
         step_header(4, _SUGG_STEPS, f"{label} Price") +
-        f"Suggest a <b>{label}</b> price (positive integer):\n\n<i>/cancel to abort.</i>",
+        f"Suggest a <b>{label}</b> price (positive number):\n\n<i>/cancel to abort.</i>",
         parse_mode=ParseMode.HTML,
     )
     return SUGGEST_ENTER_PRICE
@@ -1900,7 +1900,7 @@ async def suggest_enter_price(update: Update, context: CallbackContext):
     try:
         price = int(update.message.text); assert price > 0
     except (ValueError, AssertionError):
-        await update.message.reply_text(f"{emoji('CANCEL')} Positive integer please:\n<i>/cancel to abort.</i>", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(f"{emoji('CANCEL')} Positive number please:\n<i>/cancel to abort.</i>", parse_mode=ParseMode.HTML)
         return SUGGEST_ENTER_PRICE
     if ptype in ("stars", "both"):
         context.user_data["sugg_price_stars"] = price
@@ -2102,7 +2102,7 @@ async def add_points_cmd(update: Update, context: CallbackContext):
             raise ValueError
     except ValueError:
         await update.message.reply_text(
-            f"{emoji('CANCEL')} Invalid user ID or amount. Both must be positive integers.",
+            f"{emoji('CANCEL')} Invalid user ID or amount. Both must be positive numbers.",
             parse_mode=ParseMode.HTML
         )
         return
