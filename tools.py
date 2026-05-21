@@ -1,7 +1,8 @@
 import logging
 import html
+import random
 from datetime import date, datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, ConversationHandler,
     MessageHandler, filters, PreCheckoutQueryHandler, CallbackContext,
@@ -269,6 +270,88 @@ async def _build_catalog(category: str = None):
     )
     return msg, InlineKeyboardMarkup(keyboard)
 
+async def send_tool_detail_message(chat_id, user_id, tool_id, context: CallbackContext):
+    """Send the tool detail (not-owned version) to a chat."""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        await context.bot.send_message(chat_id, "Tool not found.")
+        return
+
+    is_fav = db.is_favorite(user_id, tool_id)
+    fav_text = "❤️ Unfav" if is_fav else "🤍 Favorite"
+
+    if db.user_has_purchased(user_id, tool_id):
+        # Owned tool – send content directly
+        await send_tool_content(chat_id, tool, context)
+        reviews = db.get_tool_reviews(tool_id)
+        rev_txt = ""
+        if reviews:
+            rev_txt = f"\n\n{emoji('REVIEW')} <b>Reviews</b>\n"
+            for r in reviews[:3]:
+                uname = f"@{r['username']}" if r['username'] else "User"
+                rev_txt += f"{stars(r['rating'])} <i>{r['review_text'] or ''}</i> — {escape_html(uname)}\n"
+        await context.bot.send_message(
+            chat_id,
+            f"{emoji('UNLOCK')} <b>{escape_html(tool['name'])}</b> — yours!\n\n"
+            f"{tool['content']}"
+            f"{rev_txt}",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [icon_button(fav_text, callback_data=f"fav_{tool_id}", emoji_key="FAV"),
+                 icon_button("Review", callback_data=f"review_{tool_id}", emoji_key="REVIEW")],
+                [icon_button("My Tools", callback_data="show_purchases", emoji_key="pack")],
+                [back_btn("show_catalog")],
+            ]),
+        )
+        return
+
+    # Not owned – show buy menu
+    avg = db.get_avg_rating(tool_id)
+    rating_line = f"\n{emoji('STAR')} Rating: <b>{avg:.1f}/5</b>" if avg else ""
+    cat_line = f"\nCategory: <b>{escape_html(tool['category'] or 'General')}</b>" if tool['category'] else ""
+
+    msg = (
+        f"{emoji('LOCK')} <b>{escape_html(tool['name'])}</b>{cat_line}{rating_line}\n\n"
+        f"{emoji('paper')} {escape_html(tool['description'])}\n\n"
+        f"<b>Unlock with:</b>\n"
+    )
+    if tool['price_stars']:
+        msg += f"  {emoji('STAR')} <b>{tool['price_stars']}</b> Telegram Stars\n"
+    if tool['price_points']:
+        msg += f"  {emoji('POINT')} <b>{tool['price_points']}</b> Points\n"
+
+    buy_row = []
+    if tool['price_stars']:
+        buy_row.append(icon_button(f"{tool['price_stars']} Stars", callback_data=f"buystars_{tool_id}", emoji_key="STAR"))
+    if tool['price_points']:
+        buy_row.append(icon_button(f"{tool['price_points']} pts", callback_data=f"buypoints_{tool_id}", emoji_key="POINT"))
+
+    keyboard = []
+    if buy_row:
+        keyboard.append(buy_row)
+    keyboard.append([icon_button(fav_text, callback_data=f"fav_{tool_id}", emoji_key="FAV")])
+    keyboard.append([back_btn("show_catalog")])
+
+    await context.bot.send_message(
+        chat_id,
+        msg,
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+async def send_category_tools(update: Update, context: CallbackContext, category: str):
+    """Send a list of tools in a given category to the user."""
+    tools = db.get_all_active_tools(category=category)
+    if not tools:
+        await update.message.reply_text(f"No tools in <b>{escape_html(category)}</b> yet.", parse_mode=ParseMode.HTML)
+        return
+    text = f"{emoji('TAG')} <b>{escape_html(category)} tools</b>\n\n"
+    keyboard = []
+    for tool in tools:
+        keyboard.append([icon_button(escape_html(tool['name']), callback_data=f"tool_{tool['id']}", emoji_key="LOCK")])
+    keyboard.append([back_btn("show_catalog")])
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
 # ── /start ────────────────────────────────────────────────────────────────────
 async def start(update: Update, context: CallbackContext):
     user = update.effective_user
@@ -295,6 +378,26 @@ async def start(update: Update, context: CallbackContext):
             )
         except Exception:
             pass
+
+    # ── Inline deep links ───────────────────────────────────────────────────
+    if context.args:
+        arg = context.args[0]
+        if arg.startswith("tool_"):
+            try:
+                tool_id = int(arg[5:])
+                await send_tool_detail_message(
+                    update.effective_chat.id,
+                    user.id,
+                    tool_id,
+                    context,
+                )
+                return
+            except ValueError:
+                pass
+        elif arg.startswith("category:"):
+            cat = arg.split(":", 1)[1]
+            await send_category_tools(update, context, cat)
+            return
 
     keyboard = InlineKeyboardMarkup([
         [icon_button("Browse Tools",    callback_data="show_catalog", emoji_key="SEARCH")],
@@ -365,6 +468,102 @@ async def show_catalog(update: Update, context: CallbackContext):
         )
         return
     await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+
+# ── Inline Mode Handler ──────────────────────────────────────────────────────
+def build_tool_inline_result(tool, bot_username):
+    """Helper: create an InlineQueryResultArticle for a tool."""
+    avg = db.get_avg_rating(tool['id'])
+    stars_str = stars(round(avg)) if avg else ""
+    desc_parts = [tool['category'] or 'General']
+    prices = []
+    if tool['price_stars']:
+        prices.append(f"⭐{tool['price_stars']}")
+    if tool['price_points']:
+        prices.append(f"🏅{tool['price_points']}")
+    if prices:
+        desc_parts.append(" ".join(prices))
+    else:
+        desc_parts.append("Free")
+    if stars_str:
+        desc_parts.append(stars_str)
+    description = " | ".join(desc_parts)
+
+    return InlineQueryResultArticle(
+        id=f"tool_{tool['id']}",
+        title=tool['name'],
+        description=description,
+        input_message_content=InputTextMessageContent(
+            message_text=(
+                f"🔒 <b>{escape_html(tool['name'])}</b>\n"
+                f"{escape_html(tool['description'])}\n\n"
+                f"<b>Unlock with:</b> {' '.join(prices) if prices else 'Free'}"
+            ),
+            parse_mode=ParseMode.HTML,
+        ),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "🔍 View & Buy",
+                switch_pm_parameter=f"tool_{tool['id']}",
+            )
+        ]]),
+    )
+
+
+async def inline_query(update: Update, context: CallbackContext):
+    query_text = update.inline_query.query.strip()
+    user_id = update.inline_query.from_user.id
+    bot_username = context.bot.username
+    results = []
+
+    # ─── No query → show categories (browse) ────────────────────────────────
+    if not query_text:
+        cats = db.get_all_categories()
+        for cat in cats:
+            count = db.count_tools_in_category(cat)
+            results.append(
+                InlineQueryResultArticle(
+                    id=f"cat_{cat}",
+                    title=f"📁 {cat}",
+                    description=f"{count} tools",
+                    input_message_content=InputTextMessageContent(
+                        message_text=f"📁 Browse {cat} tools",
+                        parse_mode=ParseMode.HTML,
+                    ),
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton(
+                            f"Open {cat} tools in bot",
+                            switch_pm_parameter=f"category:{cat}",
+                        )
+                    ]]),
+                )
+            )
+        await update.inline_query.answer(results, cache_time=0)
+        return
+
+    # ─── Specific keywords ──────────────────────────────────────────────────
+    if query_text.lower() in ("random", "r"):
+        all_tools = db.get_all_active_tools()
+        if all_tools:
+            tool = random.choice(all_tools)
+            results.append(build_tool_inline_result(tool, bot_username))
+    elif query_text.lower() in ("favs", "favorites", "favourites"):
+        favs = db.get_favorites(user_id)
+        for fav in favs[:10]:
+            tool = db.get_tool(fav["tool_id"])
+            if tool:
+                results.append(build_tool_inline_result(tool, bot_username))
+    elif query_text.startswith("category:"):
+        cat = query_text.split(":", 1)[1].strip()
+        tools = db.get_all_active_tools(category=cat)
+        for tool in tools[:10]:
+            results.append(build_tool_inline_result(tool, bot_username))
+    else:
+        # Default: tool search
+        tools = db.search_tools(query_text)
+        for tool in tools[:10]:
+            results.append(build_tool_inline_result(tool, bot_username))
+
+    await update.inline_query.answer(results, cache_time=0)
 
 # ── Categories ────────────────────────────────────────────────────────────────
 async def show_categories(update: Update, context: CallbackContext):
@@ -1835,6 +2034,7 @@ def main():
     app.add_handler(CommandHandler("setinvitepoints",       set_invite_points))
     app.add_handler(CommandHandler("set_suggestion_reward", set_suggestion_reward))
     app.add_handler(CommandHandler("set_checkin_reward",    set_checkin_reward))
+    app.add_handler(InlineQueryHandler(inline_query))
 
     # ── Conversations ─────────────────────────────────────────────────────────
     app.add_handler(add_tool_conv)
