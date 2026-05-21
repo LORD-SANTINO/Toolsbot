@@ -633,7 +633,7 @@ def build_tool_inline_result(tool, bot_username):
                 [
                     InlineKeyboardButton(
                         "🔍 View & Buy",
-                        url=f"https://t.me{bot_username}?start=tool_{tool['id']}",
+                        url=f"https://t.me/toolstorerobot?start=tool_{tool['id']}",
                     )
                 ]
             ]
@@ -666,7 +666,7 @@ async def inline_query(update: Update, context: CallbackContext):
                             [
                                 InlineKeyboardButton(
                                     f"Open {cat} tools in bot",
-                                    url=f"https://t.me{bot_username}?start=category_{cat}",
+                                    url=f"https://t.me/toolstorerobot?start=category_{cat}",
                                 )
                             ]
                         ]
