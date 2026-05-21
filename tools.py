@@ -146,6 +146,89 @@ def get_checkin_reward() -> int:
     v = db.get_setting("checkin_reward")
     return int(v) if v else 10
 
+from functools import wraps
+
+# ── Force Join Helper ─────────────────────────────────────────────────────────
+async def _send_join_required(update: Update, context: CallbackContext, missing_channels: list, original_callback_data: str = None):
+    """Send a message asking to join required channels."""
+    keyboard = []
+    for ch in missing_channels:
+        # ch is like "@channel"
+        url = f"https://t.me/{ch[1:]}" if ch.startswith('@') else f"https://t.me/{ch}"
+        keyboard.append([InlineKeyboardButton(f"Join {ch}", url=url)])
+    # Add check button
+    keyboard.append([InlineKeyboardButton("I have joined", callback_data="check_join", emoji_key="CHECK")])
+
+    text = f"{emoji('LOCK')}<b>Access Restricted</b>\n\nYou must join the following channels to use this bot:\n\n"
+    for ch in missing_channels:
+        text += f"• {ch}\n"
+    text += "\nAfter joining, click the button below."
+
+    if update.callback_query:
+        # store original callback data so we can retry later
+        if original_callback_data:
+            context.user_data["pending_callback"] = original_callback_data
+        await update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def _is_user_joined_all(user_id: int, context: CallbackContext) -> tuple:
+    """Return (joined: bool, missing_channels: list)."""
+    missing = []
+    for channel in REQUIRED_CHANNELS:
+        try:
+            member = await context.bot.get_chat_member(channel, user_id)
+            if member.status not in ("member", "creator", "administrator"):
+                missing.append(channel)
+        except Exception:
+            missing.append(channel)  # assume not joined if bot can't check
+    return len(missing) == 0, missing
+
+def force_join(func):
+    """Decorator to enforce joining required channels before executing the function."""
+    @wraps(func)
+    async def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
+        user_id = update.effective_user.id
+        joined, missing = await _is_user_joined_all(user_id, context)
+        if joined:
+            return await func(update, context, *args, **kwargs)
+        # Not joined → store original callback data if applicable
+        original_data = None
+        if update.callback_query:
+            original_data = update.callback_query.data
+        await _send_join_required(update, context, missing, original_data)
+        return
+    return wrapper
+
+async def check_join_callback(update: Update, context: CallbackContext):
+    """Callback handler for 'check_join' button."""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    joined, missing = await _is_user_joined_all(user_id, context)
+    if joined:
+        # user joined all channels → retry the pending action
+        pending = context.user_data.pop("pending_callback", None)
+        if pending:
+            # simulate the original callback
+            new_query = query
+            new_query.data = pending
+            await query.edit_message_text(
+                f"{emoji('CHECK')} <b>All channels joined!</b>\n\nYou can now use the bot. Please retry your action{emoji('TEETH')}.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup([[back_btn("show_catalog")]])
+            )
+        else:
+            # just acknowledge
+            await query.edit_message_text(
+                f"{emoji('CHECK')} Thanks for joining! You can now use the bot.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup([[back_btn("show_catalog")]])
+            )
+    else:
+        # still missing some channels
+        await _send_join_required(update, context, missing, context.user_data.get("pending_callback"))
+
 def stars(n: int) -> str:
     if n <= 0:
         return "☆☆☆☆☆"
@@ -153,6 +236,7 @@ def stars(n: int) -> str:
     return "⭐" * n + "☆" * (5 - n)
 
 # ── Achievement engine ────────────────────────────────────────────────────────
+@force_join
 async def check_and_award(bot, user_id: int, trigger: str):
     """Award achievements based on trigger events. Notifies user on unlock."""
     unlocked = db.get_user_achievements(user_id)
@@ -201,6 +285,7 @@ async def check_and_award(bot, user_id: int, trigger: str):
             pass
 
 # ── Cancel helpers ────────────────────────────────────────────────────────────
+@force_join
 async def cancel_all(update: Update, context: CallbackContext):
     context.user_data.clear()
     msg, keyboard, _ = await _build_catalog()
@@ -226,7 +311,7 @@ async def conv_cancel_callback(update: Update, context: CallbackContext):
 # ── Catalog builder ───────────────────────────────────────────────────────────
 ITEMS_PER_PAGE = 5  # Tools per page
 
-
+@force_join
 async def _build_catalog(category: str = None, page: int = 0):
     """Build catalog with pagination."""
     tools_list = db.get_all_active_tools(category=category)
@@ -297,6 +382,7 @@ async def _build_catalog(category: str = None, page: int = 0):
     )
     return msg, InlineKeyboardMarkup(keyboard), total_pages
 
+@force_join
 async def send_tool_detail_message(chat_id, user_id, tool_id, context: CallbackContext):
     """Send the tool detail (not-owned version) to a chat."""
     tool = db.get_tool(tool_id)
@@ -365,7 +451,7 @@ async def send_tool_detail_message(chat_id, user_id, tool_id, context: CallbackC
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
-
+@force_join
 async def send_category_tools(update: Update, context: CallbackContext, category: str):
     """Send a list of tools in a given category to the user."""
     tools = db.get_all_active_tools(category=category)
@@ -379,6 +465,7 @@ async def send_category_tools(update: Update, context: CallbackContext, category
     keyboard.append([back_btn("show_catalog")])
     await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
 # ── /start ────────────────────────────────────────────────────────────────────
+@force_join
 async def start(update: Update, context: CallbackContext):
     user = update.effective_user
     db.add_user_if_not_exists(user.id, user.username)
@@ -442,9 +529,9 @@ async def start(update: Update, context: CallbackContext):
         ],
     ])
     await update.message.reply_text(
-        f"{emoji('WAVE')} <b>Welcome to the Premium Dev Toolbox!</b>\n\n"
-        f"{emoji('TREASURE')} Curated premium tools for developers.\n"
-        f"{emoji('STAR')} Unlock with Telegram Stars or Points.\n"
+        f"{emoji('WAVE')} <b>Welcome to the Premium Dev Tools Gallery!{emoji('IMAGE')}</b>\n\n"
+        f"{emoji('TREASURE')} Curated premium tools for developers and noobs.\n"
+        f"{emoji('STAR')} Unlock with Telegram Stars or Points.<I>Monetization coming soon..</i>\n"
         f"{emoji('GIFT')} Invite friends & suggest tools for bonus points.\n"
         f"{emoji('FIRE')} Check in daily to build your streak!\n\n"
         f"{emoji('INFO')} Use /help for all commands.",
@@ -453,6 +540,7 @@ async def start(update: Update, context: CallbackContext):
     )
 
 # ── /help ─────────────────────────────────────────────────────────────────────
+@force_join
 async def help_command(update: Update, context: CallbackContext):
     await update.message.reply_text(
         f"{emoji('INFO')} <b>Commands</b>\n\n"
@@ -475,6 +563,7 @@ async def help_command(update: Update, context: CallbackContext):
     )
 
 # ── /tools ────────────────────────────────────────────────────────────────────
+@force_join
 async def tools(update: Update, context: CallbackContext):
     msg, keyboard, total = await _build_catalog(page=0)
     if not keyboard:
@@ -654,6 +743,7 @@ async def show_category(update: Update, context: CallbackContext):
     )
 
 # ── Search ────────────────────────────────────────────────────────────────────
+@force_join
 async def search_start(update: Update, context: CallbackContext):
     if update.callback_query:
         await update.callback_query.answer()
@@ -668,6 +758,7 @@ async def search_start(update: Update, context: CallbackContext):
         )
     return SEARCH_QUERY
 
+@force_join
 async def search_query(update: Update, context: CallbackContext):
     q = update.message.text.strip()
     results = db.search_tools(q)
@@ -750,6 +841,7 @@ async def show_favorites(update: Update, context: CallbackContext):
         await send(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ── Daily Check-in ────────────────────────────────────────────────────────────
+@force_join
 async def daily_checkin(update: Update, context: CallbackContext):
     if update.callback_query:
         query = update.callback_query
@@ -808,6 +900,7 @@ async def daily_checkin(update: Update, context: CallbackContext):
         await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
 # ── Leaderboard ───────────────────────────────────────────────────────────────
+@force_join
 async def show_leaderboard(update: Update, context: CallbackContext):
     if update.callback_query:
         query = update.callback_query
@@ -1001,6 +1094,7 @@ async def show_purchases(update: Update, context: CallbackContext):
         reply_markup=InlineKeyboardMarkup([[back_btn("show_catalog")]]),
     )
 
+@force_join
 async def send_tool_content(chat_id, tool, context: CallbackContext):
     """Send the actual content (text or file) of a tool."""
     content = tool['content']
@@ -1122,6 +1216,7 @@ async def buy_stars(update: Update, context: CallbackContext):
 async def pre_checkout(update: Update, context: CallbackContext):
     await update.pre_checkout_query.answer(ok=True)
 
+@force_join
 async def successful_payment(update: Update, context: CallbackContext):
     payload = update.message.successful_payment.invoice_payload
     if not payload.startswith("stars_"):
@@ -1355,6 +1450,7 @@ async def award_points_start(update: Update, context: CallbackContext):
     )
     return AWARD_USER_ID
 
+@force_join
 async def award_points_user(update: Update, context: CallbackContext):
     try:
         uid = int(update.message.text)
@@ -1471,6 +1567,7 @@ async def add_tool_desc(update: Update, context: CallbackContext):
     )
     return ADD_TOOL_CAT
 
+@force_join
 async def add_tool_cat(update: Update, context: CallbackContext):
     val = update.message.text.strip()
     context.user_data["tcat"] = "" if val.lower() == "skip" else val
@@ -1528,6 +1625,7 @@ async def add_tool_price_stars(update: Update, context: CallbackContext):
     )
     return ADD_TOOL_CONTENT
 
+@force_join
 async def add_tool_content_file(update: Update, context: CallbackContext):
     """Handle file submission when admin adds a tool."""
     d      = context.user_data
@@ -1588,6 +1686,7 @@ async def add_tool_price_points(update: Update, context: CallbackContext):
     )
     return ADD_TOOL_CONTENT
 
+@force_join
 async def add_tool_content(update: Update, context: CallbackContext):
     d      = context.user_data
     stars_ = d.get("tprice_stars", 0)
@@ -1726,7 +1825,7 @@ async def remove_tool(update: Update, context: CallbackContext):
 # USER — Suggest Tool Conversation
 # ═══════════════════════════════════════════════════════════════════════════════
 _SUGG_STEPS = 4
-
+@force_join
 async def suggest_start(update: Update, context: CallbackContext):
     context.user_data.clear()
     text = (
@@ -1740,6 +1839,7 @@ async def suggest_start(update: Update, context: CallbackContext):
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     return SUGGEST_NAME
 
+@force_join
 async def suggest_name(update: Update, context: CallbackContext):
     context.user_data["sugg_name"] = update.message.text.strip()
     await update.message.reply_text(
@@ -1800,6 +1900,7 @@ async def suggest_enter_price(update: Update, context: CallbackContext):
     )
     return SUGGEST_CONTENT
 
+@force_join
 async def suggest_content(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     name    = context.user_data.get("sugg_name", "")
@@ -1832,6 +1933,7 @@ async def suggest_content(update: Update, context: CallbackContext):
     context.user_data.clear()
     return ConversationHandler.END
 
+@force_join
 async def suggest_content_file(update: Update, context: CallbackContext):
     """Handle file submissions for suggestions"""
     user_id = update.effective_user.id
@@ -2145,6 +2247,7 @@ def main():
     app.add_handler(award_conv)
 
     # ── Callbacks (most specific first) ──────────────────────────────────────
+    app.add_handler(CallbackQueryHandler(check_join_callback, pattern="^check_join$"))
     app.add_handler(CallbackQueryHandler(approve_suggestion,  pattern="^approvesugg_"))
     app.add_handler(CallbackQueryHandler(reject_suggestion,   pattern="^rejectsugg_"))
     app.add_handler(CallbackQueryHandler(admin_ban_callback,  pattern="^admin_(ban|unban)_"))
