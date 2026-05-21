@@ -65,7 +65,9 @@ PREMIUM_EMOJIS = {
     "FAV":      ("5994453058656931434", "❤️"),
     "STAR5":    ("5976731220434753490", "⭐⭐⭐⭐⭐"),
     "REVIEW":   ("5884510167986343350", "💬"),
-    "Star5": ("5976731220434753490", "lol")
+    "Star5": ("5976731220434753490", "lol"),
+    "NEXT": ("5260450573768990626", "nextsha"),
+    "TEETH": ("5354889508674360491", "LOL")
 }
 
 
@@ -201,7 +203,7 @@ async def check_and_award(bot, user_id: int, trigger: str):
 # ── Cancel helpers ────────────────────────────────────────────────────────────
 async def cancel_all(update: Update, context: CallbackContext):
     context.user_data.clear()
-    msg, keyboard = await _build_catalog()
+    msg, keyboard, _ = await _build_catalog()
     text = f"{emoji('CANCEL')} Cancelled.\n\n" + (msg or "")
     if keyboard:
         await update.message.reply_text(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
@@ -213,7 +215,7 @@ async def conv_cancel_callback(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     context.user_data.clear()
-    msg, keyboard = await _build_catalog()
+    msg, keyboard, _ = await _build_catalog()
     text = f"{emoji('CANCEL')} Cancelled.\n\n" + (msg or "")
     if keyboard:
         await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
@@ -222,13 +224,22 @@ async def conv_cancel_callback(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 # ── Catalog builder ───────────────────────────────────────────────────────────
-async def _build_catalog(category: str = None):
+ITEMS_PER_PAGE = 5  # Tools per page
+
+
+async def _build_catalog(category: str = None, page: int = 0):
+    """Build catalog with pagination."""
     tools_list = db.get_all_active_tools(category=category)
     if not tools_list:
-        return None, None
+        return None, None, 0
+
+    total_pages = (len(tools_list) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    start_idx = page * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    page_tools = tools_list[start_idx:end_idx]
 
     keyboard = []
-    for tool in tools_list:
+    for tool in page_tools:
         avg = db.get_avg_rating(tool["id"])
         rating_str = f" {stars(round(avg))}" if avg else ""
         cat_str = f" [{tool['category'] or 'General'}]" if tool['category'] else ""
@@ -240,37 +251,51 @@ async def _build_catalog(category: str = None):
         ])
         actions = []
         if tool["price_stars"]:
-            actions.append(icon_button(f"{tool['price_stars']}", callback_data=f"buystars_{tool['id']}", emoji_key="STAR"))
+            actions.append(
+                icon_button(f"{tool['price_stars']}", callback_data=f"buystars_{tool['id']}", emoji_key="STAR"))
         if tool["price_points"]:
-            actions.append(icon_button(f"{tool['price_points']}", callback_data=f"buypoints_{tool['id']}", emoji_key="POINT"))
+            actions.append(
+                icon_button(f"{tool['price_points']}", callback_data=f"buypoints_{tool['id']}", emoji_key="POINT"))
         if actions:
             keyboard.append(actions)
 
+    # Pagination controls
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(icon_button("Previous", callback_data=f"catalog_page_{page - 1}", emoji_key="BACK"))
+    if page < total_pages - 1:
+        nav_buttons.append(icon_button("Next", callback_data=f"catalog_page_{page + 1}", emoji_key="NEXT"))
+
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+
+    # Main menu buttons (always visible)
     keyboard += [
         [
-            icon_button("Search",       callback_data="search_start", emoji_key="SEARCH"),
-            icon_button("Categories",   callback_data="show_categories", emoji_key="TAG"),
+            icon_button("Search", callback_data="search_start", emoji_key="SEARCH"),
+            icon_button("Categories", callback_data="show_categories", emoji_key="TAG"),
         ],
         [
-            icon_button("Suggest",      callback_data="suggest_start", emoji_key="bulb"),
-            icon_button("Leaderboard",  callback_data="show_leaderboard", emoji_key="TROPHY"),
+            icon_button("Suggest", callback_data="suggest_start", emoji_key="bulb"),
+            icon_button("Leaderboard", callback_data="show_leaderboard", emoji_key="TROPHY"),
         ],
         [
-            icon_button("About",        callback_data="show_info", emoji_key="INFO"),
-            icon_button("My Points",    callback_data="show_points", emoji_key="POINT"),
-            icon_button("My Tools",     callback_data="show_purchases", emoji_key="pack"),
+            icon_button("About", callback_data="show_info", emoji_key="INFO"),
+            icon_button("My Points", callback_data="show_points", emoji_key="POINT"),
+            icon_button("My Tools", callback_data="show_purchases", emoji_key="pack"),
         ],
         [
-            icon_button("Favorites",    callback_data="show_favorites", emoji_key="FAV"),
+            icon_button("Favorites", callback_data="show_favorites", emoji_key="FAV"),
             icon_button("Daily Reward", callback_data="daily_checkin", emoji_key="GIFT"),
         ],
     ]
+
     msg = (
         f"{emoji('TREASURE')} <b>Premium Dev Toolbox</b>\n"
-        f"{emoji('ROCKET')} Choose your weapon, dev! {emoji('down')}\n\n"
+        f"{emoji('ROCKET')} <i>Page {page + 1}/{total_pages}</i> • {len(page_tools)} tools shown\n\n"
         f"{emoji('LOCK')} Tap a tool · ⭐/🏅 to buy instantly"
     )
-    return msg, InlineKeyboardMarkup(keyboard)
+    return msg, InlineKeyboardMarkup(keyboard), total_pages
 
 async def send_tool_detail_message(chat_id, user_id, tool_id, context: CallbackContext):
     """Send the tool detail (not-owned version) to a chat."""
@@ -295,7 +320,6 @@ async def send_tool_detail_message(chat_id, user_id, tool_id, context: CallbackC
         await context.bot.send_message(
             chat_id,
             f"{emoji('UNLOCK')} <b>{escape_html(tool['name'])}</b> — yours!\n\n"
-            f"{tool['content']}"
             f"{rev_txt}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
@@ -452,7 +476,7 @@ async def help_command(update: Update, context: CallbackContext):
 
 # ── /tools ────────────────────────────────────────────────────────────────────
 async def tools(update: Update, context: CallbackContext):
-    msg, keyboard = await _build_catalog()
+    msg, keyboard, total = await _build_catalog(page=0)
     if not keyboard:
         await update.message.reply_text(
             f"{emoji('WARNING')} No tools yet — check back soon!", parse_mode=ParseMode.HTML
@@ -460,15 +484,23 @@ async def tools(update: Update, context: CallbackContext):
         return
     await update.message.reply_text(msg, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
+
 async def show_catalog(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    msg, keyboard = await _build_catalog()
+
+    # Get page from callback or default to 0
+    page = 0
+    if query.data.startswith("catalog_page_"):
+        page = int(query.data.split("_")[-1])
+
+    msg, keyboard, total = await _build_catalog(page=page)
     if not keyboard:
         await query.edit_message_text(
             f"{emoji('WARNING')} No tools yet.", parse_mode=ParseMode.HTML
         )
         return
+
     await query.edit_message_text(msg, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 # ── Inline Mode Handler ──────────────────────────────────────────────────────
@@ -590,22 +622,33 @@ async def show_categories(update: Update, context: CallbackContext):
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
+
 async def show_category(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    cat = query.data[4:]   # cat_Python → Python
-    msg, keyboard_obj = await _build_catalog(category=cat)
+
+    # Parse category and page
+    data = query.data[4:]  # Remove "cat_"
+    if "_page_" in data:
+        category, page = data.rsplit("_page_", 1)
+        page = int(page)
+    else:
+        category = data
+        page = 0
+
+    msg, keyboard_obj, total = await _build_catalog(category=category, page=page)
     if not keyboard_obj:
         await query.edit_message_text(
-            f"{emoji('INFO')} No tools in <b>{escape_html(cat)}</b> yet.",
+            f"{emoji('INFO')} No tools in <b>{escape_html(category)}</b> yet.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([[back_btn("show_categories")]]),
         )
         return
+
     rows = list(keyboard_obj.inline_keyboard)
-    rows.append([back_btn("show_categories")])
+
     await query.edit_message_text(
-        f"{emoji('TAG')} <b>{escape_html(cat)}</b> tools:\n\n" + msg,
+        f"{emoji('TAG')} <b>{escape_html(category)}</b> tools (Page {page + 1}/{total}):\n\n" + msg,
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(rows),
     )
@@ -1333,7 +1376,7 @@ async def award_points_amount(update: Update, context: CallbackContext):
         amount = int(update.message.text)
         assert amount > 0
     except (ValueError, AssertionError):
-        await update.message.reply_text(f"{emoji('CANCEL')} Send a positive integer:")
+        await update.message.reply_text(f"{emoji('CANCEL')} Send a positive number{emoji('TEETH')}:")
         return AWARD_AMOUNT
     uid = context.user_data["award_uid"]
     db.add_points(uid, amount, "admin_award")
@@ -1917,6 +1960,58 @@ async def reject_suggestion(update: Update, context: CallbackContext):
     else:
         await query.edit_message_text(f"{emoji('CANCEL')} Not found.", parse_mode=ParseMode.HTML)
 
+async def add_points_cmd(update: Update, context: CallbackContext):
+    """Admin only: /add <user_id> <amount> - award points instantly."""
+    if not is_admin(update):
+        await update.message.reply_text(f"{emoji('CANCEL')} Admin only.")
+        return
+
+    if len(context.args) != 2:
+        await update.message.reply_text(
+            f"{emoji('WARNING')} Usage: /add <user_id> <amount>\n\nExample: /add 123456789 100",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    try:
+        user_id = int(context.args[0])
+        amount = int(context.args[1])
+        if amount <= 0:
+            raise ValueError
+    except ValueError:
+        await update.message.reply_text(
+            f"{emoji('CANCEL')} Invalid user ID or amount. Both must be positive integers.",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    user = db.get_user(user_id)
+    if not user:
+        await update.message.reply_text(
+            f"{emoji('CANCEL')} User {user_id} not found in database.",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    # Award points
+    db.add_points(user_id, amount, "admin_add")
+    await check_and_award(context.bot, user_id, "points")
+
+    # Notify user if possible
+    try:
+        await context.bot.send_message(
+            user_id,
+            f"{emoji('GIFT')} An admin added <b>{amount} points</b> to your balance! {emoji('party')}",
+            parse_mode=ParseMode.HTML,
+        )
+    except Exception:
+        pass
+
+    await update.message.reply_text(
+        f"{emoji('CHECK')} Added <b>{amount} points</b> to user <b>{user_id}</b>.\n"
+        f"New balance: <b>{user['points'] + amount}</b>",
+        parse_mode=ParseMode.HTML
+    )
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2056,6 +2151,8 @@ def main():
     app.add_handler(CallbackQueryHandler(toggle_favorite,     pattern="^fav_"))
     app.add_handler(CallbackQueryHandler(buy_stars,           pattern="^buystars_"))
     app.add_handler(CallbackQueryHandler(buy_points_handler,  pattern="^buypoints_"))
+    app.add_handler(CallbackQueryHandler(show_catalog, pattern="^catalog_page_"))
+    app.add_handler(CallbackQueryHandler(show_category, pattern="^cat_.*_page_"))
     app.add_handler(CallbackQueryHandler(show_catalog,        pattern="^show_catalog$"))
     app.add_handler(CallbackQueryHandler(show_info,           pattern="^show_info$"))
     app.add_handler(CallbackQueryHandler(show_points,         pattern="^show_points$"))
