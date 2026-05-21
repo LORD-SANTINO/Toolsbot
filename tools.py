@@ -156,9 +156,9 @@ async def _send_join_required(update: Update, context: CallbackContext, missing_
     for ch in missing_channels:
         # ch is like "@channel"
         url = f"https://t.me/{ch[1:]}" if ch.startswith('@') else f"https://t.me/{ch}"
-        keyboard.append([InlineKeyboardButton(f"Join {ch}", url=url)])
+        keyboard.append([InlineKeyboardButton(f"Join Channel", url=url)])
     # Add check button
-    keyboard.append([InlineKeyboardButton("I have joined", callback_data="check_join", emoji_key="CHECK")])
+    keyboard.append([InlineKeyboardButton("I have joined", callback_data="check_join")])
 
     text = f"{emoji('LOCK')}<b>Access Restricted</b>\n\nYou must join the following channels to use this bot:\n\n"
     for ch in missing_channels:
@@ -1704,7 +1704,7 @@ async def add_tool_content(update: Update, context: CallbackContext):
     stars_ = d.get("tprice_stars", 0)
     points = d.get("tprice_points", 0)
     db.add_tool(d["tname"], d["tdesc"], stars_, points, 0, "", update.message.text,
-                category=d.get("tcat", ""))
+                category=d["tcat", ""])
     price_parts = ([f"{emoji('STAR')} {stars_}"] if stars_ else []) + ([f"{emoji('POINT')} {points}"] if points else [])
     await update.message.reply_text(
         f"{emoji('CHECK')} <b>Tool added!</b>\n\n"
@@ -1814,7 +1814,7 @@ async def list_tools(update: Update, context: CallbackContext):
     for t in tools_list:
         prices = ([f"{t['price_stars']}⭐"] if t["price_stars"] else []) + \
                  ([f"{t['price_points']}🏅"] if t["price_points"] else [])
-        cat  = t.get("category") or "General"
+        cat  = t["category"] or "General"
         lines.append(f"<b>#{t['id']}</b>  [{cat}]  {escape_html(t['name'])}  —  {' | '.join(prices) or 'Free'}")
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
